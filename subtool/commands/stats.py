@@ -44,6 +44,8 @@ def calculate_words_per_minute(cue: SubtitleCue) -> float:
 
 def check_high_risk(cue: SubtitleCue, wpm_threshold: float = 200,
                     min_duration_ms: int = 300) -> HighRiskSentence:
+    if cue.is_empty:
+        return None
     wpm = calculate_words_per_minute(cue)
     reasons = []
     risk_level = "low"

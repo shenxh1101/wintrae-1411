@@ -6,14 +6,21 @@ from .__init__ import __version__
 from .parser import parse_subtitle, find_subtitle_files
 from .writer import write_subtitle
 from .models import SubtitleFile
-from .commands.scan import scan_subtitle, generate_scan_report
+from .commands.scan import scan_subtitle, generate_scan_report, format_ms
 from .commands.shift import shift_subtitle
 from .commands.split import split_subtitle
 from .commands.merge import merge_subtitles
 from .commands.stats import analyze_subtitle, generate_stats_report
 from .commands.fix import (
     build_fix_plan, apply_fix_plan,
-    generate_fix_plan_report, generate_fix_result_report
+    generate_fix_plan_report, generate_fix_result_report,
+    FIX_TYPE_LABELS, SKIP_REASON_NO_SUGGESTIONS,
+    FIX_TYPE_RENUMBER, FIX_TYPE_REMOVE_EMPTY, FIX_TYPE_FIX_OVERLAP
+)
+from .commands.qa import (
+    execute_qa, execute_qa_batch, generate_qa_report, qa_results_to_json,
+    RISK_LEVEL_HIGH, RISK_LEVEL_MEDIUM, RISK_LEVEL_LOW, RISK_LEVEL_OK,
+    QA_CATEGORY_FIXED, QA_CATEGORY_SUGGESTED, QA_CATEGORY_CLEAN, QA_CATEGORY_FAILED
 )
 from .commands.batch import (
     load_config, validate_config, execute_batch,
@@ -570,13 +577,13 @@ def fix(input_path, recursive, dry_run, do_apply, overlap_threshold,
         }
         if plan.total_suggestions == 0:
             result_entry['status'] = 'skipped'
-            result_entry['reason'] = '无修复建议'
+            result_entry['skip_reason'] = SKIP_REASON_NO_SUGGESTIONS
             click.echo(f"[SKIP] {file_name}: 无需修复")
             results.append(result_entry)
             continue
         try:
             subfile = parse_subtitle(file_path)
-            fixed_sub, applied_counts = apply_fix_plan(
+            fixed_sub, fix_details = apply_fix_plan(
                 subfile, plan, overlap_threshold_ms=overlap_threshold
             )
             out_path = process_output(
@@ -590,9 +597,23 @@ def fix(input_path, recursive, dry_run, do_apply, overlap_threshold,
                 use_date_subdir=date_subdir,
                 allow_overwrite=overwrite
             )
+            fix_items_json = []
+            for fd in fix_details:
+                fix_items_json.append({
+                    'fix_type': fd.fix_type,
+                    'fix_type_label': fd.fix_type_label,
+                    'cue_index': fd.cue_index,
+                    'before': fd.before,
+                    'after': fd.after
+                })
+            all_types = {FIX_TYPE_RENUMBER, FIX_TYPE_REMOVE_EMPTY, FIX_TYPE_FIX_OVERLAP}
+            applied_types = {fd.fix_type for fd in fix_details}
+            skipped_types = list(all_types - applied_types - {s.fix_type for s in plan.suggestions})
+
             result_entry['status'] = 'success'
             result_entry['fixed_cues'] = len(fixed_sub.cues)
-            result_entry['applied_counts'] = applied_counts
+            result_entry['fix_items'] = fix_items_json
+            result_entry['skipped_types'] = skipped_types
             result_entry['output_path'] = out_path
             click.echo(f"[OK] {file_name}: 修复完成 -> {os.path.relpath(out_path, start=output_dir or '.')}")
         except Exception as e:
@@ -616,6 +637,62 @@ def fix(input_path, recursive, dry_run, do_apply, overlap_threshold,
 
     failed = sum(1 for r in results if r['status'] == 'failed')
     if failed > 0:
+        sys.exit(1)
+
+
+@main.command()
+@click.argument('input_path', type=click.Path(exists=True))
+@click.option('--recursive/--no-recursive', default=True, help='递归扫描子目录')
+@click.option('--wpm-threshold', default=200, help='高风险语速阈值(词/分钟)')
+@click.option('--min-duration', default=300, help='最短时长阈值(ms)')
+@click.option('--overlap-threshold', default=500, help='重叠修复阈值(ms)')
+@click.option('--report', 'report_path', type=click.Path(), help='QA报告输出路径')
+@click.option('--report-format', type=click.Choice(['txt', 'json']), default='txt', help='报告格式')
+def qa(input_path, recursive, wpm_threshold, min_duration, overlap_threshold,
+       report_path, report_format):
+    """综合质量检查：同时给出 scan、stats、fix dry-run 的综合报告"""
+    files = get_input_files(input_path, recursive)
+
+    if not files:
+        click.echo("未找到字幕文件")
+        return
+
+    click.echo(f"质量检查 {len(files)} 个字幕文件...")
+    click.echo("")
+
+    qa_results = execute_qa_batch(
+        files,
+        wpm_threshold=wpm_threshold,
+        min_duration_ms=min_duration,
+        overlap_threshold_ms=overlap_threshold
+    )
+
+    for r in qa_results:
+        risk_short = {'high': 'HIGH', 'medium': 'MED', 'low': 'LOW', 'ok': 'OK'}.get(r.risk_level, '?')
+        cat_short = {'fixed': '已修', 'suggested': '建议', 'clean': '通过', 'failed': '失败'}.get(r.category, '?')
+        if r.error:
+            click.echo(f"[FAIL] {r.file_name}: {r.error}")
+        else:
+            dur_str = format_ms(r.total_duration_ms) if r.total_duration_ms > 0 else 'N/A'
+            click.echo(f"[{risk_short}] {r.file_name}: "
+                       f"{r.total_cues}条, {dur_str}, {r.total_words}词, "
+                       f"错误:{r.errors} 警告:{r.warnings} 高风险:{r.high_risk} "
+                       f"[{cat_short}]")
+
+    click.echo("")
+    report = generate_qa_report(qa_results)
+    click.echo(report)
+
+    if report_path:
+        if report_format == 'json':
+            content = qa_results_to_json(qa_results)
+        else:
+            content = report
+        saved = save_report(content, report_path, report_format)
+        click.echo(f"QA报告已保存到: {saved}")
+
+    has_high_risk = any(r.risk_level == RISK_LEVEL_HIGH for r in qa_results)
+    if has_high_risk:
         sys.exit(1)
 
 

@@ -1,0 +1,71 @@
+[
+  {
+    "file_path": "examples/sample1_empty.srt",
+    "file_name": "sample1_empty.srt",
+    "original_cues": 10,
+    "status": "success",
+    "fixed_cues": 7,
+    "fix_items": [
+      {
+        "fix_type": "remove_empty",
+        "fix_type_label": "删除空字幕",
+        "cue_index": 3,
+        "before": {
+          "index": 3,
+          "time": "00:00:06.500 --> 00:00:07.000",
+          "text": "(空)"
+        },
+        "after": {
+          "action": "已删除",
+          "reason": "内容为空"
+        }
+      },
+      {
+        "fix_type": "remove_empty",
+        "fix_type_label": "删除空字幕",
+        "cue_index": 7,
+        "before": {
+          "index": 7,
+          "time": "00:00:18.500 --> 00:00:19.000",
+          "text": "(空)"
+        },
+        "after": {
+          "action": "已删除",
+          "reason": "内容为空"
+        }
+      },
+      {
+        "fix_type": "remove_empty",
+        "fix_type_label": "删除空字幕",
+        "cue_index": 10,
+        "before": {
+          "index": 10,
+          "time": "00:00:28.000 --> 00:00:29.000",
+          "text": "(空)"
+        },
+        "after": {
+          "action": "已删除",
+          "reason": "内容为空"
+        }
+      },
+      {
+        "fix_type": "fix_overlap",
+        "fix_type_label": "修复时间轴重叠",
+        "cue_index": 1,
+        "before": {
+          "cue_index": 1,
+          "end_time": "00:00:04.000"
+        },
+        "after": {
+          "cue_index": 1,
+          "end_time": "00:00:03.500",
+          "overlap_resolved": "500ms"
+        }
+      }
+    ],
+    "skipped_types": [
+      "renumber"
+    ],
+    "output_path": "test_output_v3/fix_detail\\sample1_empty_fixed_1.srt"
+  }
+]

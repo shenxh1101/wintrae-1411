@@ -7,11 +7,20 @@ from typing import List, Dict, Any, Optional
 from ..models import SubtitleFile
 from ..parser import parse_subtitle, find_subtitle_files
 from ..writer import write_subtitle
-from ..commands.scan import scan_subtitle, generate_scan_report
+from ..commands.scan import scan_subtitle, generate_scan_report, format_ms
 from ..commands.shift import shift_subtitle
 from ..commands.split import split_subtitle
 from ..commands.merge import merge_subtitles
 from ..commands.stats import analyze_subtitle, generate_stats_report
+from ..commands.fix import (
+    build_fix_plan, apply_fix_plan,
+    FIX_TYPE_LABELS as FIX_LABELS
+)
+from ..commands.qa import (
+    execute_qa, generate_qa_report, qa_results_to_json,
+    QA_CATEGORY_FIXED, QA_CATEGORY_SUGGESTED, QA_CATEGORY_CLEAN, QA_CATEGORY_FAILED,
+    QA_CATEGORY_LABELS
+)
 from ..utils import (
     build_output_path, process_output, parse_time_string,
     generate_scan_summary, generate_scan_summary_report,
@@ -27,6 +36,8 @@ STAGE_SHIFT = 'shift'
 STAGE_SPLIT = 'split'
 STAGE_MERGE = 'merge'
 STAGE_WRITE = 'write'
+STAGE_QA = 'qa'
+STAGE_FIX = 'fix'
 
 ERROR_STAGE_MAP = {
     STAGE_PARSE: '解析失败',
@@ -35,8 +46,16 @@ ERROR_STAGE_MAP = {
     STAGE_SHIFT: '时间偏移失败',
     STAGE_SPLIT: '拆分失败',
     STAGE_MERGE: '合并失败',
-    STAGE_WRITE: '写文件失败'
+    STAGE_WRITE: '写文件失败',
+    STAGE_QA: '质量检查失败',
+    STAGE_FIX: '修复失败'
 }
+
+CONDITION_SCAN_HAS_ERRORS = 'scan_has_errors'
+CONDITION_SCAN_HAS_ISSUES = 'scan_has_issues'
+CONDITION_ALWAYS = 'always'
+
+VALID_CONDITIONS = {CONDITION_SCAN_HAS_ERRORS, CONDITION_SCAN_HAS_ISSUES, CONDITION_ALWAYS}
 
 
 @dataclass
@@ -46,6 +65,8 @@ class BatchActionResult:
     success: bool
     details: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
+    skipped: bool = False
+    skip_reason: Optional[str] = None
 
 
 @dataclass
@@ -56,6 +77,7 @@ class BatchResult:
     actions: List[BatchActionResult] = field(default_factory=list)
     error: Optional[str] = None
     output_files: List[str] = field(default_factory=list)
+    qa_category: Optional[str] = None
 
     @property
     def is_success(self) -> bool:
@@ -66,6 +88,12 @@ class BatchResult:
         if not self.error_stage:
             return '-'
         return ERROR_STAGE_MAP.get(self.error_stage, self.error_stage)
+
+    @property
+    def qa_category_label(self) -> str:
+        if not self.qa_category:
+            return '-'
+        return QA_CATEGORY_LABELS.get(self.qa_category, self.qa_category)
 
 
 @dataclass
@@ -79,6 +107,7 @@ class BatchSummary:
     stats_results: List[Any] = field(default_factory=list)
     merge_outputs: List[str] = field(default_factory=list)
     error_stage_counts: Dict[str, int] = field(default_factory=dict)
+    qa_categories: Dict[str, int] = field(default_factory=dict)
 
     def add_result(self, result: BatchResult):
         self.results.append(result)
@@ -90,6 +119,9 @@ class BatchSummary:
             if result.error_stage:
                 self.error_stage_counts[result.error_stage] = \
                     self.error_stage_counts.get(result.error_stage, 0) + 1
+        if result.qa_category:
+            self.qa_categories[result.qa_category] = \
+                self.qa_categories.get(result.qa_category, 0) + 1
 
 
 def load_config(config_path: str) -> Dict[str, Any]:
@@ -110,7 +142,7 @@ def validate_config(config: Dict[str, Any]) -> List[str]:
     if 'actions' not in config or not isinstance(config['actions'], list):
         errors.append("缺少 actions 配置或格式错误")
     else:
-        valid_actions = {'scan', 'shift', 'split', 'merge', 'stats'}
+        valid_actions = {'scan', 'shift', 'split', 'merge', 'stats', 'qa', 'fix_dryrun'}
         for i, action in enumerate(config['actions']):
             if 'type' not in action:
                 errors.append(f"第 {i+1} 个 action 缺少 type")
@@ -119,6 +151,9 @@ def validate_config(config: Dict[str, Any]) -> List[str]:
             elif action['type'] == 'merge':
                 if 'output' not in action:
                     errors.append(f"第 {i+1} 个 action (merge) 缺少 output 参数")
+            condition = action.get('condition')
+            if condition and condition not in VALID_CONDITIONS:
+                errors.append(f"第 {i+1} 个 action 条件 '{condition}' 不支持，可选: {', '.join(VALID_CONDITIONS)}")
 
     return errors
 
@@ -148,6 +183,18 @@ def get_output_config(config: Dict[str, Any]) -> Dict[str, Any]:
         'backup_dir': output_cfg.get('backup_dir'),
         'inplace': output_cfg.get('inplace', False)
     }
+
+
+def _check_condition(condition: Optional[str], scan_result: Optional[Dict[str, Any]]) -> bool:
+    if not condition or condition == CONDITION_ALWAYS:
+        return True
+    if scan_result is None:
+        return False
+    if condition == CONDITION_SCAN_HAS_ERRORS:
+        return scan_result.get('has_errors', False)
+    if condition == CONDITION_SCAN_HAS_ISSUES:
+        return scan_result.get('total_issues', 0) > 0
+    return True
 
 
 def execute_scan_action(subfile: SubtitleFile, params: Dict[str, Any]) -> BatchActionResult:
@@ -335,6 +382,79 @@ def execute_stats_action(subfile: SubtitleFile, params: Dict[str, Any]) -> Batch
         )
 
 
+def execute_qa_action(subfile: SubtitleFile, params: Dict[str, Any]) -> BatchActionResult:
+    try:
+        qa_result = execute_qa(
+            subfile,
+            wpm_threshold=params.get('wpm_threshold', 200),
+            min_duration_ms=params.get('min_duration', 300),
+            overlap_threshold_ms=params.get('overlap_threshold', 500)
+        )
+        return BatchActionResult(
+            action='qa',
+            stage=STAGE_QA,
+            success=True,
+            details={
+                'risk_level': qa_result.risk_level,
+                'risk_level_label': qa_result.risk_level_label,
+                'category': qa_result.category,
+                'category_label': qa_result.category_label,
+                'errors': qa_result.errors,
+                'warnings': qa_result.warnings,
+                'high_risk': qa_result.high_risk,
+                'main_problems': qa_result.main_problems,
+                'suggestions_count': len(qa_result.suggestions),
+                'qa_result': qa_result
+            }
+        )
+    except Exception as e:
+        return BatchActionResult(
+            action='qa',
+            stage=STAGE_QA,
+            success=False,
+            error=str(e)
+        )
+
+
+def execute_fix_dryrun_action(subfile: SubtitleFile, params: Dict[str, Any]) -> BatchActionResult:
+    try:
+        plan = build_fix_plan(
+            subfile,
+            overlap_threshold_ms=params.get('overlap_threshold', 500),
+            skip_renumber=params.get('skip_renumber', False),
+            skip_empty=params.get('skip_empty', False),
+            skip_overlap=params.get('skip_overlap', False)
+        )
+        suggestions_json = []
+        for s in plan.suggestions:
+            suggestions_json.append({
+                'fix_type': s.fix_type,
+                'fix_type_label': s.fix_type_label,
+                'description': s.description,
+                'cue_index': s.cue_index,
+                'before': s.before,
+                'after': s.after
+            })
+        return BatchActionResult(
+            action='fix_dryrun',
+            stage=STAGE_FIX,
+            success=True,
+            details={
+                'total_suggestions': plan.total_suggestions,
+                'by_type_counts': plan.by_type_counts,
+                'suggestions': suggestions_json,
+                'fix_plan': plan
+            }
+        )
+    except Exception as e:
+        return BatchActionResult(
+            action='fix_dryrun',
+            stage=STAGE_FIX,
+            success=False,
+            error=str(e)
+        )
+
+
 def write_output_file(subfile: SubtitleFile, output_cfg: Dict[str, Any]) -> tuple:
     try:
         out_path = process_output(
@@ -371,6 +491,7 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
         current_subfile = None
         processed_subfile = None
         file_outputs = []
+        last_scan_result = None
 
         try:
             try:
@@ -380,12 +501,29 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
                 result.status = 'failed'
                 result.error_stage = STAGE_PARSE
                 result.error = str(pe)
+                result.qa_category = QA_CATEGORY_FAILED
                 summary.add_result(result)
                 continue
 
             for action_idx, action_cfg in enumerate(actions):
                 action_type = action_cfg['type']
                 params = action_cfg.get('params', {})
+                condition = action_cfg.get('condition')
+
+                if action_type == 'merge':
+                    continue
+
+                if not _check_condition(condition, last_scan_result):
+                    summary.total_actions += 1
+                    result.actions.append(BatchActionResult(
+                        action=action_type,
+                        stage='',
+                        success=True,
+                        skipped=True,
+                        skip_reason=f'条件不满足: {condition}'
+                    ))
+                    continue
+
                 summary.total_actions += 1
 
                 if action_type == 'scan':
@@ -396,6 +534,7 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
                         result.error_stage = action_result.stage
                         result.error = action_result.error
                         break
+                    last_scan_result = action_result.details['raw_result']
                     summary.scan_results.append(action_result.details['raw_result'])
 
                 elif action_type == 'stats':
@@ -431,17 +570,34 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
                         result.error = action_result.error
                         break
 
-                elif action_type == 'merge':
-                    continue
+                elif action_type == 'qa':
+                    action_result = execute_qa_action(current_subfile, params)
+                    result.actions.append(action_result)
+                    if not action_result.success:
+                        result.status = 'failed'
+                        result.error_stage = action_result.stage
+                        result.error = action_result.error
+                        break
+
+                elif action_type == 'fix_dryrun':
+                    action_result = execute_fix_dryrun_action(current_subfile, params)
+                    result.actions.append(action_result)
+                    if not action_result.success:
+                        result.status = 'failed'
+                        result.error_stage = action_result.stage
+                        result.error = action_result.error
+                        break
 
             if result.status != 'success':
+                result.qa_category = QA_CATEGORY_FAILED
                 result.output_files.extend(file_outputs)
                 summary.add_result(result)
                 continue
 
             has_write_action = any(
                 a.action in ('shift',) for a in result.actions
-            ) and 'split' not in [a.action for a in result.actions]
+                if not a.skipped
+            ) and 'split' not in [a.action for a in result.actions if not a.skipped]
 
             if has_write_action and processed_subfile is not None:
                 write_ok, out_path, write_err = write_output_file(processed_subfile, output_cfg)
@@ -449,16 +605,37 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
                     result.status = 'failed'
                     result.error_stage = STAGE_WRITE
                     result.error = write_err
+                    result.qa_category = QA_CATEGORY_FAILED
                 else:
                     file_outputs.append(out_path)
 
             result.output_files.extend(file_outputs)
+
+            has_scan_errors = any(
+                a.action == 'scan' and a.details.get('has_errors', False)
+                for a in result.actions if not a.skipped
+            )
+            has_fix_suggestions = any(
+                a.action == 'fix_dryrun' and a.details.get('total_suggestions', 0) > 0
+                for a in result.actions if not a.skipped
+            )
+            has_qa_suggested = any(
+                a.action == 'qa' and a.details.get('category') in (QA_CATEGORY_SUGGESTED, QA_CATEGORY_FIXED)
+                for a in result.actions if not a.skipped
+            )
+
+            if result.is_success:
+                if has_fix_suggestions or has_qa_suggested or has_scan_errors:
+                    result.qa_category = QA_CATEGORY_SUGGESTED
+                else:
+                    result.qa_category = QA_CATEGORY_CLEAN
 
         except Exception as ue:
             result.status = 'failed'
             result.error_stage = result.error_stage or 'unknown'
             if not result.error:
                 result.error = f"未预期错误: {str(ue)}"
+            result.qa_category = QA_CATEGORY_FAILED
 
         summary.add_result(result)
 
@@ -490,7 +667,8 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
                 file=f"[merge:{os.path.basename(raw_output)}]",
                 status='failed',
                 error_stage=STAGE_MERGE,
-                error='没有可用的输入文件用于合并'
+                error='没有可用的输入文件用于合并',
+                qa_category=QA_CATEGORY_FAILED
             )
             summary.add_result(dummy_result)
             continue
@@ -513,7 +691,8 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
             file=f"[merge:{os.path.basename(raw_output)}]",
             status='success' if merge_result.success else 'failed',
             error_stage=merge_result.stage if not merge_result.success else None,
-            error=merge_result.error
+            error=merge_result.error,
+            qa_category=QA_CATEGORY_FIXED if merge_result.success else QA_CATEGORY_FAILED
         )
         merge_res.actions.append(merge_result)
 
@@ -530,9 +709,10 @@ def execute_batch(config: Dict[str, Any], verbose: bool = False) -> BatchSummary
 
 def format_action_detail(action: BatchActionResult) -> str:
     a = action
+    if a.skipped:
+        return f"{a.action}: 跳过 ({a.skip_reason})"
     if a.action == 'scan':
         dur = a.details.get('total_duration_ms', 0)
-        from .scan import format_ms
         dur_str = format_ms(dur)
         return (f"scan: {a.details.get('total_issues', 0)}个问题 "
                 f"(错误:{a.details.get('errors', 0)}, 警告:{a.details.get('warnings', 0)}, "
@@ -553,6 +733,21 @@ def format_action_detail(action: BatchActionResult) -> str:
         inp = a.details.get('input_count', 0)
         out = os.path.basename(a.details.get('output', ''))
         return f"merge: 合并{inp}个文件 -> {out} ({cues}条)"
+    elif a.action == 'qa':
+        risk = a.details.get('risk_level_label', '?')
+        cat = a.details.get('category_label', '?')
+        return (f"qa: [{risk}][{cat}] "
+                f"错误:{a.details.get('errors', 0)} "
+                f"高风险:{a.details.get('high_risk', 0)} "
+                f"建议:{a.details.get('suggestions_count', 0)}")
+    elif a.action == 'fix_dryrun':
+        total = a.details.get('total_suggestions', 0)
+        by_type = a.details.get('by_type_counts', {})
+        type_strs = [f"{FIX_LABELS.get(t, t)}:{c}" for t, c in by_type.items() if c > 0]
+        desc = f"fix_dryrun: {total}条建议"
+        if type_strs:
+            desc += f" ({', '.join(type_strs)})"
+        return desc
     return f"{a.action}: 执行{'成功' if a.success else '失败'}"
 
 
@@ -574,6 +769,13 @@ def generate_batch_report(summary: BatchSummary, config: Dict[str, Any]) -> str:
             lines.append(f"  - {ERROR_STAGE_MAP.get(stage, stage)}: {count}")
     if summary.merge_outputs:
         lines.append(f"合并输出: {len(summary.merge_outputs)}个文件")
+    if summary.qa_categories:
+        lines.append("")
+        lines.append("QA分类汇总:")
+        for cat in (QA_CATEGORY_FIXED, QA_CATEGORY_SUGGESTED, QA_CATEGORY_CLEAN, QA_CATEGORY_FAILED):
+            count = summary.qa_categories.get(cat, 0)
+            if count > 0:
+                lines.append(f"  - {QA_CATEGORY_LABELS[cat]}: {count}")
     lines.append("")
 
     lines.append("-" * 80)
@@ -586,6 +788,8 @@ def generate_batch_report(summary: BatchSummary, config: Dict[str, Any]) -> str:
         header = f"{status_icon} {filename}"
         if not result.is_success and result.error_stage:
             header += f" [{ERROR_STAGE_MAP.get(result.error_stage, result.error_stage)}]"
+        if result.qa_category and result.qa_category != QA_CATEGORY_CLEAN:
+            header += f" [{result.qa_category_label}]"
         lines.append(header)
 
         if result.status == 'failed':
@@ -593,7 +797,10 @@ def generate_batch_report(summary: BatchSummary, config: Dict[str, Any]) -> str:
             lines.append(f"       错误信息: {result.error}")
 
         for action in result.actions:
-            if action.success:
+            if action.skipped:
+                detail = format_action_detail(action)
+                lines.append(f"       - {detail}")
+            elif action.success:
                 detail = format_action_detail(action)
                 lines.append(f"       - {detail}")
             else:
@@ -631,13 +838,14 @@ def batch_summary_to_json(summary: BatchSummary, config: Dict[str, Any]) -> str:
                 'stage': action.stage,
                 'success': action.success,
             }
+            if action.skipped:
+                d['skipped'] = True
+                d['skip_reason'] = action.skip_reason
             if action.error:
                 d['error'] = action.error
             details = {}
             for k, v in action.details.items():
-                if k == 'raw_result':
-                    continue
-                if k == 'subfile':
+                if k in ('raw_result', 'subfile', 'qa_result', 'fix_plan'):
                     continue
                 details[k] = v
             if details:
@@ -651,6 +859,8 @@ def batch_summary_to_json(summary: BatchSummary, config: Dict[str, Any]) -> str:
             'error_stage': result.error_stage,
             'error_stage_label': result.error_stage_label,
             'error': result.error,
+            'qa_category': result.qa_category,
+            'qa_category_label': result.qa_category_label,
             'actions': actions_json,
             'output_files': result.output_files
         })
@@ -664,6 +874,9 @@ def batch_summary_to_json(summary: BatchSummary, config: Dict[str, Any]) -> str:
         'total_actions': summary.total_actions,
         'error_stage_counts': {
             ERROR_STAGE_MAP.get(k, k): v for k, v in summary.error_stage_counts.items()
+        },
+        'qa_categories': {
+            QA_CATEGORY_LABELS.get(k, k): v for k, v in summary.qa_categories.items()
         },
         'merge_outputs': summary.merge_outputs,
         'results': results_json

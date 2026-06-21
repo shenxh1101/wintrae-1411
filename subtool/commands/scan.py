@@ -36,15 +36,18 @@ def _estimate_high_risk(subfile: SubtitleFile, wpm_threshold: float = 200,
                          min_duration_ms: int = 300) -> int:
     count = 0
     for cue in subfile.cues:
+        if cue.is_empty:
+            continue
         if cue.duration_ms <= 0 or cue.word_count == 0:
             wpm = 0.0
         else:
             minutes = cue.duration_ms / 60000.0
             wpm = cue.word_count / minutes
         is_risk = (wpm > wpm_threshold
+                   or wpm > wpm_threshold * 0.8
                    or cue.duration_ms < min_duration_ms
                    or len(cue.lines) > 3)
-        if is_risk and not cue.is_empty:
+        if is_risk:
             count += 1
     return count
 

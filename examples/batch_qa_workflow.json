@@ -1,0 +1,39 @@
+{
+  "input": {
+    "dir": "examples",
+    "recursive": false
+  },
+  "output": {
+    "dir": "test_output_v3/qa_workflow",
+    "naming": {
+      "suffix": "_qa"
+    },
+    "overwrite": true
+  },
+  "actions": [
+    {
+      "type": "scan",
+      "params": {
+        "max_chars": 40,
+        "max_lines": 2,
+        "wpm_threshold": 200,
+        "min_duration": 300
+      }
+    },
+    {
+      "type": "fix_dryrun",
+      "condition": "scan_has_errors",
+      "params": {
+        "overlap_threshold": 500
+      }
+    },
+    {
+      "type": "qa",
+      "params": {
+        "wpm_threshold": 200,
+        "min_duration": 300,
+        "overlap_threshold": 500
+      }
+    }
+  ]
+}

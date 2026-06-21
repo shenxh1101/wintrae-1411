@@ -270,13 +270,16 @@ def generate_stats_summary_report(summary: Dict[str, Any]) -> str:
     lines.append("文件详情:")
     lines.append("")
 
-    header = f"{'文件名':<30} {'字幕数':>8} {'时长':>12} {'字数':>8} {'语速':>10} {'高风险':>8}"
+    header = (f"{'文件名':<28} {'字幕数':>6} {'时长':>11} {'字数':>6} "
+              f"{'语速':>8} {'高风险':>6} {'错误':>5} {'警告':>5}")
     lines.append(header)
     lines.append("-" * 80)
 
     for f in summary['files']:
-        wpm_str = f"{f['words_per_minute']:.1f}" if 'words_per_minute' in f else "N/A"
-        line = f"{f['file_name']:<30} {f['total_cues']:>8} {f['total_duration_str']:>12} {f['total_words']:>8} {wpm_str:>10} {f['high_risk']:>8}"
+        wpm_str = f"{f.get('words_per_minute', 0):.1f}"
+        line = (f"{f['file_name']:<28} {f['total_cues']:>6} {f['total_duration_str']:>11} "
+                f"{f['total_words']:>6} {wpm_str:>8} {f['high_risk']:>6} "
+                f"{f['errors']:>5} {f['warnings']:>5}")
         lines.append(line)
 
     lines.append("")

@@ -1,0 +1,371 @@
+{
+  "summary_type": "qa",
+  "total_files": 5,
+  "risk_counts": {
+    "high": 3,
+    "medium": 2
+  },
+  "category_counts": {
+    "suggested": 3,
+    "clean": 2
+  },
+  "files": [
+    {
+      "file_path": "examples\\sample1.srt",
+      "file_name": "sample1.srt",
+      "risk_level": "high",
+      "risk_level_label": "高风险",
+      "category": "suggested",
+      "category_label": "只建议",
+      "total_cues": 8,
+      "total_duration_ms": 26000,
+      "total_duration_str": "00:00:26.000",
+      "total_words": 126,
+      "total_chars": 139,
+      "errors": 2,
+      "warnings": 3,
+      "high_risk": 7,
+      "words_per_minute": 290.8,
+      "main_problems": [
+        "错误: 时间轴重叠:1, 空字幕:1, 编号断裂:1",
+        "警告: 行数过多:1, 行过长:1"
+      ],
+      "issues": [
+        {
+          "type": "overlap",
+          "severity": "error",
+          "cue_index": 1,
+          "message": "时间轴重叠：第1条与第2条重叠 500ms"
+        },
+        {
+          "type": "empty",
+          "severity": "warning",
+          "cue_index": 3,
+          "message": "空字幕：第3条字幕内容为空"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 8,
+          "message": "行过长：第8条第1行有42字符（超过40限制）"
+        },
+        {
+          "type": "long_lines",
+          "severity": "warning",
+          "cue_index": 9,
+          "message": "行数过多：第9条有4行（超过2行限制）"
+        },
+        {
+          "type": "index_gap",
+          "severity": "error",
+          "cue_index": 7,
+          "message": "编号断裂：从7跳到8，缺少1个编号"
+        }
+      ],
+      "suggestions": [
+        {
+          "fix_type": "renumber",
+          "fix_type_label": "重新编号",
+          "priority": "high",
+          "description": "检测到编号问题，缺失1个编号，建议重新从1开始顺序编号",
+          "before": {
+            "index_sequence": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              "..."
+            ]
+          },
+          "after": {
+            "index_sequence": "1..8 (连续)"
+          }
+        },
+        {
+          "fix_type": "remove_empty",
+          "fix_type_label": "删除空字幕",
+          "priority": "high",
+          "description": "第3条字幕内容为空，建议删除",
+          "before": {
+            "index": 3,
+            "time": "00:00:06.500 --> 00:00:07.000",
+            "text": "(空)"
+          },
+          "after": {
+            "action": "删除",
+            "reason": "内容为空"
+          }
+        },
+        {
+          "fix_type": "fix_overlap",
+          "fix_type_label": "修复时间轴重叠",
+          "priority": "medium",
+          "description": "第1条与第2条重叠500ms（<=阈值500ms），建议将第1条结束时间从00:00:04.000调整为00:00:03.500",
+          "before": {
+            "cue_index": 1,
+            "end_time": "00:00:04.000"
+          },
+          "after": {
+            "cue_index": 1,
+            "end_time": "00:00:03.500",
+            "overlap_resolved": "500ms重叠已消除"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "examples\\sample1_empty.srt",
+      "file_name": "sample1_empty.srt",
+      "risk_level": "high",
+      "risk_level_label": "高风险",
+      "category": "suggested",
+      "category_label": "只建议",
+      "total_cues": 10,
+      "total_duration_ms": 28000,
+      "total_duration_str": "00:00:28.000",
+      "total_words": 126,
+      "total_chars": 139,
+      "errors": 1,
+      "warnings": 5,
+      "high_risk": 7,
+      "words_per_minute": 270.0,
+      "main_problems": [
+        "错误: 时间轴重叠:1, 空字幕:3",
+        "警告: 行数过多:1, 行过长:1"
+      ],
+      "issues": [
+        {
+          "type": "overlap",
+          "severity": "error",
+          "cue_index": 1,
+          "message": "时间轴重叠：第1条与第2条重叠 500ms"
+        },
+        {
+          "type": "empty",
+          "severity": "warning",
+          "cue_index": 3,
+          "message": "空字幕：第3条字幕内容为空"
+        },
+        {
+          "type": "empty",
+          "severity": "warning",
+          "cue_index": 7,
+          "message": "空字幕：第7条字幕内容为空"
+        },
+        {
+          "type": "empty",
+          "severity": "warning",
+          "cue_index": 10,
+          "message": "空字幕：第10条字幕内容为空"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 8,
+          "message": "行过长：第8条第1行有42字符（超过40限制）"
+        },
+        {
+          "type": "long_lines",
+          "severity": "warning",
+          "cue_index": 9,
+          "message": "行数过多：第9条有4行（超过2行限制）"
+        }
+      ],
+      "suggestions": [
+        {
+          "fix_type": "remove_empty",
+          "fix_type_label": "删除空字幕",
+          "priority": "high",
+          "description": "第3条字幕内容为空，建议删除",
+          "before": {
+            "index": 3,
+            "time": "00:00:06.500 --> 00:00:07.000",
+            "text": "(空)"
+          },
+          "after": {
+            "action": "删除",
+            "reason": "内容为空"
+          }
+        },
+        {
+          "fix_type": "remove_empty",
+          "fix_type_label": "删除空字幕",
+          "priority": "high",
+          "description": "第7条字幕内容为空，建议删除",
+          "before": {
+            "index": 7,
+            "time": "00:00:18.500 --> 00:00:19.000",
+            "text": "(空)"
+          },
+          "after": {
+            "action": "删除",
+            "reason": "内容为空"
+          }
+        },
+        {
+          "fix_type": "remove_empty",
+          "fix_type_label": "删除空字幕",
+          "priority": "high",
+          "description": "第10条字幕内容为空，建议删除",
+          "before": {
+            "index": 10,
+            "time": "00:00:28.000 --> 00:00:29.000",
+            "text": "(空)"
+          },
+          "after": {
+            "action": "删除",
+            "reason": "内容为空"
+          }
+        },
+        {
+          "fix_type": "fix_overlap",
+          "fix_type_label": "修复时间轴重叠",
+          "priority": "medium",
+          "description": "第1条与第2条重叠500ms（<=阈值500ms），建议将第1条结束时间从00:00:04.000调整为00:00:03.500",
+          "before": {
+            "cue_index": 1,
+            "end_time": "00:00:04.000"
+          },
+          "after": {
+            "cue_index": 1,
+            "end_time": "00:00:03.500",
+            "overlap_resolved": "500ms重叠已消除"
+          }
+        }
+      ]
+    },
+    {
+      "file_path": "examples\\sample2.srt",
+      "file_name": "sample2.srt",
+      "risk_level": "high",
+      "risk_level_label": "高风险",
+      "category": "clean",
+      "category_label": "无需处理",
+      "total_cues": 5,
+      "total_duration_ms": 17000,
+      "total_duration_str": "00:00:17.000",
+      "total_words": 58,
+      "total_chars": 71,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 4,
+      "words_per_minute": 204.7,
+      "main_problems": [
+        "高风险句子: 4条"
+      ],
+      "issues": [],
+      "suggestions": []
+    },
+    {
+      "file_path": "examples\\sample3.vtt",
+      "file_name": "sample3.vtt",
+      "risk_level": "medium",
+      "risk_level_label": "中风险",
+      "category": "clean",
+      "category_label": "无需处理",
+      "total_cues": 5,
+      "total_duration_ms": 19000,
+      "total_duration_str": "00:00:19.000",
+      "total_words": 34,
+      "total_chars": 176,
+      "errors": 0,
+      "warnings": 3,
+      "high_risk": 0,
+      "words_per_minute": 107.4,
+      "main_problems": [
+        "警告: 行过长:3"
+      ],
+      "issues": [
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 2,
+          "message": "行过长：第2条第1行有56字符（超过40限制）"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 3,
+          "message": "行过长：第3条第1行有41字符（超过40限制）"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 5,
+          "message": "行过长：第5条第1行有50字符（超过40限制）"
+        }
+      ],
+      "suggestions": []
+    },
+    {
+      "file_path": "examples\\sample3_complete.vtt",
+      "file_name": "sample3_complete.vtt",
+      "risk_level": "medium",
+      "risk_level_label": "中风险",
+      "category": "suggested",
+      "category_label": "只建议",
+      "total_cues": 8,
+      "total_duration_ms": 29000,
+      "total_duration_str": "00:00:29.000",
+      "total_words": 54,
+      "total_chars": 260,
+      "errors": 0,
+      "warnings": 5,
+      "high_risk": 1,
+      "words_per_minute": 111.7,
+      "main_problems": [
+        "警告: 行数过多:1, 行过长:3"
+      ],
+      "issues": [
+        {
+          "type": "empty",
+          "severity": "warning",
+          "cue_index": 6,
+          "message": "空字幕：第6条字幕内容为空"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 2,
+          "message": "行过长：第2条第1行有56字符（超过40限制）"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 3,
+          "message": "行过长：第3条第1行有41字符（超过40限制）"
+        },
+        {
+          "type": "long_line",
+          "severity": "warning",
+          "cue_index": 5,
+          "message": "行过长：第5条第1行有50字符（超过40限制）"
+        },
+        {
+          "type": "long_lines",
+          "severity": "warning",
+          "cue_index": 7,
+          "message": "行数过多：第7条有3行（超过2行限制）"
+        }
+      ],
+      "suggestions": [
+        {
+          "fix_type": "remove_empty",
+          "fix_type_label": "删除空字幕",
+          "priority": "high",
+          "description": "第6条字幕内容为空，建议删除",
+          "before": {
+            "index": 6,
+            "time": "00:00:20.500 --> 00:00:22.000",
+            "text": "(空)"
+          },
+          "after": {
+            "action": "删除",
+            "reason": "内容为空"
+          }
+        }
+      ]
+    }
+  ]
+}
