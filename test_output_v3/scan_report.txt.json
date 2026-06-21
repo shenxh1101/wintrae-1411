@@ -1,0 +1,323 @@
+[
+  {
+    "file": "examples\\sample1.srt",
+    "total_cues": 8,
+    "issues": [
+      {
+        "type": "overlap",
+        "severity": "error",
+        "cue_index": 1,
+        "message": "时间轴重叠：第1条与第2条重叠 500ms",
+        "details": {
+          "cue1_index": 1,
+          "cue1_end": "00:00:04.000",
+          "cue2_index": 2,
+          "cue2_start": "00:00:03.500",
+          "overlap_ms": 500
+        }
+      },
+      {
+        "type": "empty",
+        "severity": "warning",
+        "cue_index": 3,
+        "message": "空字幕：第3条字幕内容为空",
+        "details": {
+          "start_time": "00:00:06.500",
+          "end_time": "00:00:07.000",
+          "duration_ms": 500
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 8,
+        "message": "行过长：第8条第1行有42字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 42,
+          "max_chars": 40,
+          "line_content": "这是一条非常非常非常非常非常非常非常非常长的句子，用来测试长行检测功能是否正常工作。"
+        }
+      },
+      {
+        "type": "long_lines",
+        "severity": "warning",
+        "cue_index": 9,
+        "message": "行数过多：第9条有4行（超过2行限制）",
+        "details": {
+          "line_count": 4,
+          "max_lines": 2,
+          "lines": [
+            "这行也",
+            "有两行",
+            "还有第三行",
+            "第四行"
+          ]
+        }
+      },
+      {
+        "type": "index_gap",
+        "severity": "error",
+        "cue_index": 7,
+        "message": "编号断裂：从7跳到8，缺少1个编号",
+        "details": {
+          "expected": 7,
+          "actual": 8,
+          "missing_count": 1
+        }
+      }
+    ],
+    "total_issues": 5,
+    "severity_counts": {
+      "error": 2,
+      "warning": 3,
+      "info": 0
+    },
+    "type_counts": {
+      "overlap": 1,
+      "empty": 1,
+      "long_line": 1,
+      "long_lines": 1,
+      "index_gap": 1
+    },
+    "has_errors": true
+  },
+  {
+    "file": "examples\\sample1_empty.srt",
+    "total_cues": 10,
+    "issues": [
+      {
+        "type": "overlap",
+        "severity": "error",
+        "cue_index": 1,
+        "message": "时间轴重叠：第1条与第2条重叠 500ms",
+        "details": {
+          "cue1_index": 1,
+          "cue1_end": "00:00:04.000",
+          "cue2_index": 2,
+          "cue2_start": "00:00:03.500",
+          "overlap_ms": 500
+        }
+      },
+      {
+        "type": "empty",
+        "severity": "warning",
+        "cue_index": 3,
+        "message": "空字幕：第3条字幕内容为空",
+        "details": {
+          "start_time": "00:00:06.500",
+          "end_time": "00:00:07.000",
+          "duration_ms": 500
+        }
+      },
+      {
+        "type": "empty",
+        "severity": "warning",
+        "cue_index": 7,
+        "message": "空字幕：第7条字幕内容为空",
+        "details": {
+          "start_time": "00:00:18.500",
+          "end_time": "00:00:19.000",
+          "duration_ms": 500
+        }
+      },
+      {
+        "type": "empty",
+        "severity": "warning",
+        "cue_index": 10,
+        "message": "空字幕：第10条字幕内容为空",
+        "details": {
+          "start_time": "00:00:28.000",
+          "end_time": "00:00:29.000",
+          "duration_ms": 1000
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 8,
+        "message": "行过长：第8条第1行有42字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 42,
+          "max_chars": 40,
+          "line_content": "这是一条非常非常非常非常非常非常非常非常长的句子，用来测试长行检测功能是否正常工作。"
+        }
+      },
+      {
+        "type": "long_lines",
+        "severity": "warning",
+        "cue_index": 9,
+        "message": "行数过多：第9条有4行（超过2行限制）",
+        "details": {
+          "line_count": 4,
+          "max_lines": 2,
+          "lines": [
+            "这行也",
+            "有两行",
+            "还有第三行",
+            "第四行"
+          ]
+        }
+      }
+    ],
+    "total_issues": 6,
+    "severity_counts": {
+      "error": 1,
+      "warning": 5,
+      "info": 0
+    },
+    "type_counts": {
+      "overlap": 1,
+      "empty": 3,
+      "long_line": 1,
+      "long_lines": 1
+    },
+    "has_errors": true
+  },
+  {
+    "file": "examples\\sample2.srt",
+    "total_cues": 5,
+    "issues": [],
+    "total_issues": 0,
+    "severity_counts": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "type_counts": {},
+    "has_errors": false
+  },
+  {
+    "file": "examples\\sample3.vtt",
+    "total_cues": 5,
+    "issues": [
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 2,
+        "message": "行过长：第2条第1行有56字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 56,
+          "max_chars": 40,
+          "line_content": "In this lesson, we will learn about subtitle processing."
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 3,
+        "message": "行过长：第3条第1行有41字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 41,
+          "max_chars": 40,
+          "line_content": "It's a very useful skill for translators."
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 5,
+        "message": "行过长：第5条第1行有50字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 50,
+          "max_chars": 40,
+          "line_content": "First, we need to understand the subtitle formats."
+        }
+      }
+    ],
+    "total_issues": 3,
+    "severity_counts": {
+      "error": 0,
+      "warning": 3,
+      "info": 0
+    },
+    "type_counts": {
+      "long_line": 3
+    },
+    "has_errors": false
+  },
+  {
+    "file": "examples\\sample3_complete.vtt",
+    "total_cues": 8,
+    "issues": [
+      {
+        "type": "empty",
+        "severity": "warning",
+        "cue_index": 6,
+        "message": "空字幕：第6条字幕内容为空",
+        "details": {
+          "start_time": "00:00:20.500",
+          "end_time": "00:00:22.000",
+          "duration_ms": 1500
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 2,
+        "message": "行过长：第2条第1行有56字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 56,
+          "max_chars": 40,
+          "line_content": "In this lesson, we will learn about subtitle processing."
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 3,
+        "message": "行过长：第3条第1行有41字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 41,
+          "max_chars": 40,
+          "line_content": "It's a very useful skill for translators."
+        }
+      },
+      {
+        "type": "long_line",
+        "severity": "warning",
+        "cue_index": 5,
+        "message": "行过长：第5条第1行有50字符（超过40限制）",
+        "details": {
+          "line_num": 1,
+          "char_count": 50,
+          "max_chars": 40,
+          "line_content": "First, we need to understand the subtitle formats."
+        }
+      },
+      {
+        "type": "long_lines",
+        "severity": "warning",
+        "cue_index": 7,
+        "message": "行数过多：第7条有3行（超过2行限制）",
+        "details": {
+          "line_count": 3,
+          "max_lines": 2,
+          "lines": [
+            "This cue has multiple lines.",
+            "Line two is here.",
+            "Line three too."
+          ]
+        }
+      }
+    ],
+    "total_issues": 5,
+    "severity_counts": {
+      "error": 0,
+      "warning": 5,
+      "info": 0
+    },
+    "type_counts": {
+      "empty": 1,
+      "long_line": 3,
+      "long_lines": 1
+    },
+    "has_errors": false
+  }
+]

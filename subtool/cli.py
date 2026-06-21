@@ -11,6 +11,10 @@ from .commands.shift import shift_subtitle
 from .commands.split import split_subtitle
 from .commands.merge import merge_subtitles
 from .commands.stats import analyze_subtitle, generate_stats_report
+from .commands.fix import (
+    build_fix_plan, apply_fix_plan,
+    generate_fix_plan_report, generate_fix_result_report
+)
 from .commands.batch import (
     load_config, validate_config, execute_batch,
     generate_batch_report, batch_summary_to_json
@@ -78,7 +82,10 @@ def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path,
 
             status = "OK" if not result["has_errors"] else "FAIL"
             click.echo(f"[{status}] {os.path.basename(file_path)}: "
-                       f"{result['total_cues']}条字幕, "
+                       f"{result['total_cues']}条, "
+                       f"{result.get('total_duration_str', 'N/A')}, "
+                       f"{result.get('total_words', 0)}词, "
+                       f"{result.get('high_risk_count', 0)}高风险, "
                        f"{result['total_issues']}个问题 "
                        f"(错误:{result['severity_counts']['error']}, "
                        f"警告:{result['severity_counts']['warning']})")
@@ -454,6 +461,161 @@ def batch(config_path, dry_run, report_path, report_format, verbose):
         click.echo(f"批处理报告已保存到: {saved_path}")
 
     if summary.failed_files > 0:
+        sys.exit(1)
+
+
+@main.command()
+@click.argument('input_path', type=click.Path(exists=True))
+@click.option('--recursive/--no-recursive', default=True, help='递归扫描子目录')
+@click.option('--dry-run', is_flag=True, help='预览模式，只生成修复建议不写入文件')
+@click.option('--apply', 'do_apply', is_flag=True,
+              help='确认执行修复（不加此参数则等同于 dry-run）')
+@click.option('--overlap-threshold', default=500, help='重叠修复阈值(ms)，默认500')
+@click.option('--skip-renumber', is_flag=True, help='跳过编号修复')
+@click.option('--skip-empty', is_flag=True, help='跳过空字幕删除')
+@click.option('--skip-overlap', is_flag=True, help='跳过重叠修复')
+@click.option('--output-dir', type=click.Path(), help='输出目录')
+@click.option('--target-format', type=click.Choice(['srt', 'vtt']), help='目标格式')
+@click.option('--suffix', default='_fixed', help='文件名后缀（默认_fixed，防覆盖）')
+@click.option('--prefix', default='', help='文件名前缀')
+@click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
+@click.option('--overwrite', is_flag=True, help='允许覆盖已有文件（慎用！）')
+@click.option('--report', 'report_path', type=click.Path(), help='修复报告输出路径')
+@click.option('--report-format', type=click.Choice(['txt', 'json']), default='txt', help='报告格式')
+@click.option('--yes', '-y', 'confirm_yes', is_flag=True, help='跳过确认提示，直接执行修复')
+def fix(input_path, recursive, dry_run, do_apply, overlap_threshold,
+        skip_renumber, skip_empty, skip_overlap,
+        output_dir, target_format, suffix, prefix, date_subdir, overwrite,
+        report_path, report_format, confirm_yes):
+    """自动修复预览和执行：编号断裂、空字幕、明显重叠"""
+    files = get_input_files(input_path, recursive)
+
+    if not files:
+        click.echo("未找到字幕文件")
+        return
+
+    actually_apply = do_apply and not dry_run
+
+    click.echo(f"检查 {len(files)} 个字幕文件...")
+    skip_flags = []
+    if skip_renumber:
+        skip_flags.append("编号修复")
+    if skip_empty:
+        skip_flags.append("空字幕删除")
+    if skip_overlap:
+        skip_flags.append("重叠修复")
+    if skip_flags:
+        click.echo(f"已跳过: {', '.join(skip_flags)}")
+    click.echo(f"重叠修复阈值: {overlap_threshold}ms")
+    click.echo("")
+
+    plans = []
+    for file_path in files:
+        try:
+            subfile = parse_subtitle(file_path)
+            plan = build_fix_plan(
+                subfile,
+                overlap_threshold_ms=overlap_threshold,
+                skip_renumber=skip_renumber,
+                skip_empty=skip_empty,
+                skip_overlap=skip_overlap
+            )
+            plans.append(plan)
+            total = plan.total_suggestions
+            click.echo(f"[OK] {os.path.basename(file_path)}: "
+                       f"{plan.original_cues}条字幕, "
+                       f"{total}条修复建议")
+        except Exception as e:
+            click.echo(f"[FAIL] {os.path.basename(file_path)}: 解析失败 - {str(e)}")
+
+    click.echo("")
+    plan_report = generate_fix_plan_report(plans)
+    click.echo(plan_report)
+
+    if not actually_apply:
+        click.echo("")
+        click.echo("[INFO] 当前为预览模式（dry-run）。")
+        click.echo("       确认无误后，加 --apply 或 -y 参数执行修复并生成新文件。")
+        if report_path:
+            saved = save_report(plan_report, report_path, report_format)
+            click.echo(f"预览报告已保存到: {saved}")
+        return
+
+    if not confirm_yes:
+        click.echo("")
+        total_sug = sum(p.total_suggestions for p in plans)
+        if total_sug == 0:
+            click.echo("[INFO] 没有需要修复的内容，跳过写入。")
+            return
+        click.echo(f"即将对 {sum(1 for p in plans if p.total_suggestions > 0)} 个文件执行修复。")
+        click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'{'（日期子目录）' if date_subdir else ''}")
+        if not overwrite:
+            click.echo("防覆盖保护: 已启用（如存在同名文件自动加数字后缀）")
+        else:
+            click.echo("[!] 覆盖模式: 已启用（可能覆盖已有文件！）")
+        click.echo("")
+        ans = click.prompt("是否继续? (y/N)", default='N', show_default=False)
+        if ans.strip().lower() not in ('y', 'yes'):
+            click.echo("已取消。")
+            return
+
+    results = []
+    for plan in plans:
+        file_path = plan.file
+        file_name = os.path.basename(file_path)
+        result_entry = {
+            'file_path': file_path,
+            'file_name': file_name,
+            'original_cues': plan.original_cues
+        }
+        if plan.total_suggestions == 0:
+            result_entry['status'] = 'skipped'
+            result_entry['reason'] = '无修复建议'
+            click.echo(f"[SKIP] {file_name}: 无需修复")
+            results.append(result_entry)
+            continue
+        try:
+            subfile = parse_subtitle(file_path)
+            fixed_sub, applied_counts = apply_fix_plan(
+                subfile, plan, overlap_threshold_ms=overlap_threshold
+            )
+            out_path = process_output(
+                fixed_sub,
+                output_dir=output_dir,
+                target_format=target_format,
+                inplace=False,
+                backup_method='none',
+                suffix=suffix,
+                prefix=prefix,
+                use_date_subdir=date_subdir,
+                allow_overwrite=overwrite
+            )
+            result_entry['status'] = 'success'
+            result_entry['fixed_cues'] = len(fixed_sub.cues)
+            result_entry['applied_counts'] = applied_counts
+            result_entry['output_path'] = out_path
+            click.echo(f"[OK] {file_name}: 修复完成 -> {os.path.relpath(out_path, start=output_dir or '.')}")
+        except Exception as e:
+            result_entry['status'] = 'failed'
+            result_entry['error'] = str(e)
+            click.echo(f"[FAIL] {file_name}: 修复失败 - {str(e)}")
+        results.append(result_entry)
+
+    click.echo("")
+    result_report = generate_fix_result_report(results)
+    click.echo(result_report)
+
+    if report_path:
+        if report_format == 'json':
+            content = __import__('json').dumps(results, ensure_ascii=False, indent=2)
+        else:
+            combined = plan_report + "\n\n" + result_report
+            content = combined
+        saved = save_report(content, report_path, report_format)
+        click.echo(f"修复报告已保存到: {saved}")
+
+    failed = sum(1 for r in results if r['status'] == 'failed')
+    if failed > 0:
         sys.exit(1)
 
 

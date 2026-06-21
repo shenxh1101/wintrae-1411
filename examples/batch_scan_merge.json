@@ -1,0 +1,32 @@
+{
+  "input": {
+    "dir": "examples",
+    "recursive": false
+  },
+  "output": {
+    "dir": "test_output_v3/merged",
+    "format": "srt",
+    "naming": {
+      "suffix": "_merged",
+      "date_subdir": false
+    },
+    "overwrite": true
+  },
+  "actions": [
+    {
+      "type": "scan",
+      "params": {
+        "max_chars": 40,
+        "max_lines": 2
+      }
+    },
+    {
+      "type": "merge",
+      "output": "examples_combined.srt",
+      "params": {
+        "gap": 1000,
+        "renumber": true
+      }
+    }
+  ]
+}

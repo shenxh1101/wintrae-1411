@@ -1,0 +1,420 @@
+{
+  "summary_type": "batch",
+  "executed_at": "2026-06-22T05:32:10.561538",
+  "total_files": 5,
+  "success_files": 5,
+  "failed_files": 0,
+  "total_actions": 10,
+  "error_stage_counts": {},
+  "merge_outputs": [],
+  "results": [
+    {
+      "file_path": "examples\\sample1.srt",
+      "file_name": "sample1.srt",
+      "status": "success",
+      "error_stage": null,
+      "error_stage_label": "-",
+      "error": null,
+      "actions": [
+        {
+          "action": "scan",
+          "stage": "scan",
+          "success": true,
+          "details": {
+            "total_issues": 5,
+            "errors": 2,
+            "warnings": 3,
+            "total_duration_ms": 26000,
+            "total_words": 126,
+            "total_chars": 139,
+            "high_risk": 6,
+            "has_errors": true
+          }
+        },
+        {
+          "action": "stats",
+          "stage": "stats",
+          "success": true,
+          "details": {
+            "total_cues": 8,
+            "total_words": 126,
+            "total_duration_ms": 26000,
+            "words_per_minute": 290.7692307692308,
+            "high_risk_count": 7
+          }
+        }
+      ],
+      "output_files": []
+    },
+    {
+      "file_path": "examples\\sample1_empty.srt",
+      "file_name": "sample1_empty.srt",
+      "status": "success",
+      "error_stage": null,
+      "error_stage_label": "-",
+      "error": null,
+      "actions": [
+        {
+          "action": "scan",
+          "stage": "scan",
+          "success": true,
+          "details": {
+            "total_issues": 6,
+            "errors": 1,
+            "warnings": 5,
+            "total_duration_ms": 28000,
+            "total_words": 126,
+            "total_chars": 139,
+            "high_risk": 6,
+            "has_errors": true
+          }
+        },
+        {
+          "action": "stats",
+          "stage": "stats",
+          "success": true,
+          "details": {
+            "total_cues": 10,
+            "total_words": 126,
+            "total_duration_ms": 28000,
+            "words_per_minute": 270.0,
+            "high_risk_count": 7
+          }
+        }
+      ],
+      "output_files": []
+    },
+    {
+      "file_path": "examples\\sample2.srt",
+      "file_name": "sample2.srt",
+      "status": "success",
+      "error_stage": null,
+      "error_stage_label": "-",
+      "error": null,
+      "actions": [
+        {
+          "action": "scan",
+          "stage": "scan",
+          "success": true,
+          "details": {
+            "total_issues": 0,
+            "errors": 0,
+            "warnings": 0,
+            "total_duration_ms": 17000,
+            "total_words": 58,
+            "total_chars": 71,
+            "high_risk": 4,
+            "has_errors": false
+          }
+        },
+        {
+          "action": "stats",
+          "stage": "stats",
+          "success": true,
+          "details": {
+            "total_cues": 5,
+            "total_words": 58,
+            "total_duration_ms": 17000,
+            "words_per_minute": 204.7058823529412,
+            "high_risk_count": 4
+          }
+        }
+      ],
+      "output_files": []
+    },
+    {
+      "file_path": "examples\\sample3.vtt",
+      "file_name": "sample3.vtt",
+      "status": "success",
+      "error_stage": null,
+      "error_stage_label": "-",
+      "error": null,
+      "actions": [
+        {
+          "action": "scan",
+          "stage": "scan",
+          "success": true,
+          "details": {
+            "total_issues": 3,
+            "errors": 0,
+            "warnings": 3,
+            "total_duration_ms": 19000,
+            "total_words": 34,
+            "total_chars": 176,
+            "high_risk": 0,
+            "has_errors": false
+          }
+        },
+        {
+          "action": "stats",
+          "stage": "stats",
+          "success": true,
+          "details": {
+            "total_cues": 5,
+            "total_words": 34,
+            "total_duration_ms": 19000,
+            "words_per_minute": 107.36842105263159,
+            "high_risk_count": 0
+          }
+        }
+      ],
+      "output_files": []
+    },
+    {
+      "file_path": "examples\\sample3_complete.vtt",
+      "file_name": "sample3_complete.vtt",
+      "status": "success",
+      "error_stage": null,
+      "error_stage_label": "-",
+      "error": null,
+      "actions": [
+        {
+          "action": "scan",
+          "stage": "scan",
+          "success": true,
+          "details": {
+            "total_issues": 5,
+            "errors": 0,
+            "warnings": 5,
+            "total_duration_ms": 29000,
+            "total_words": 54,
+            "total_chars": 260,
+            "high_risk": 1,
+            "has_errors": false
+          }
+        },
+        {
+          "action": "stats",
+          "stage": "stats",
+          "success": true,
+          "details": {
+            "total_cues": 8,
+            "total_words": 54,
+            "total_duration_ms": 29000,
+            "words_per_minute": 111.72413793103448,
+            "high_risk_count": 1
+          }
+        }
+      ],
+      "output_files": []
+    }
+  ],
+  "scan_summary": {
+    "summary_type": "scan",
+    "total_files": 5,
+    "total_cues": 36,
+    "total_duration_ms": 119000,
+    "total_duration_str": "00:01:59.000",
+    "total_words": 398,
+    "total_chars": 785,
+    "total_high_risk": 17,
+    "total_issues": 19,
+    "total_errors": 3,
+    "total_warnings": 16,
+    "files_with_errors": 2,
+    "files_without_errors": 3,
+    "files": [
+      {
+        "file_path": "examples\\sample1.srt",
+        "file_name": "sample1.srt",
+        "total_cues": 8,
+        "total_duration_ms": 26000,
+        "total_duration_str": "00:00:26.000",
+        "total_words": 126,
+        "total_chars": 139,
+        "errors": 2,
+        "warnings": 3,
+        "high_risk": 6,
+        "status": "error",
+        "total_issues": 5,
+        "infos": 0,
+        "issue_types": {
+          "overlap": 1,
+          "empty": 1,
+          "long_line": 1,
+          "long_lines": 1,
+          "index_gap": 1
+        }
+      },
+      {
+        "file_path": "examples\\sample1_empty.srt",
+        "file_name": "sample1_empty.srt",
+        "total_cues": 10,
+        "total_duration_ms": 28000,
+        "total_duration_str": "00:00:28.000",
+        "total_words": 126,
+        "total_chars": 139,
+        "errors": 1,
+        "warnings": 5,
+        "high_risk": 6,
+        "status": "error",
+        "total_issues": 6,
+        "infos": 0,
+        "issue_types": {
+          "overlap": 1,
+          "empty": 3,
+          "long_line": 1,
+          "long_lines": 1
+        }
+      },
+      {
+        "file_path": "examples\\sample2.srt",
+        "file_name": "sample2.srt",
+        "total_cues": 5,
+        "total_duration_ms": 17000,
+        "total_duration_str": "00:00:17.000",
+        "total_words": 58,
+        "total_chars": 71,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 4,
+        "status": "ok",
+        "total_issues": 0,
+        "infos": 0,
+        "issue_types": {}
+      },
+      {
+        "file_path": "examples\\sample3.vtt",
+        "file_name": "sample3.vtt",
+        "total_cues": 5,
+        "total_duration_ms": 19000,
+        "total_duration_str": "00:00:19.000",
+        "total_words": 34,
+        "total_chars": 176,
+        "errors": 0,
+        "warnings": 3,
+        "high_risk": 0,
+        "status": "ok",
+        "total_issues": 3,
+        "infos": 0,
+        "issue_types": {
+          "long_line": 3
+        }
+      },
+      {
+        "file_path": "examples\\sample3_complete.vtt",
+        "file_name": "sample3_complete.vtt",
+        "total_cues": 8,
+        "total_duration_ms": 29000,
+        "total_duration_str": "00:00:29.000",
+        "total_words": 54,
+        "total_chars": 260,
+        "errors": 0,
+        "warnings": 5,
+        "high_risk": 1,
+        "status": "ok",
+        "total_issues": 5,
+        "infos": 0,
+        "issue_types": {
+          "empty": 1,
+          "long_line": 3,
+          "long_lines": 1
+        }
+      }
+    ]
+  },
+  "stats_summary": {
+    "summary_type": "stats",
+    "total_files": 5,
+    "total_cues": 36,
+    "total_duration_ms": 119000,
+    "total_duration_str": "00:01:59.000",
+    "total_words": 398,
+    "total_chars": 785,
+    "total_high_risk": 19,
+    "avg_words_per_minute": 200.67226890756302,
+    "files": [
+      {
+        "file_path": "examples\\sample1.srt",
+        "file_name": "sample1.srt",
+        "total_cues": 8,
+        "total_duration_ms": 26000,
+        "total_duration_str": "00:00:26.000",
+        "total_words": 126,
+        "total_chars": 139,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 7,
+        "status": "ok",
+        "words_per_minute": 290.7692307692308,
+        "speakers": [
+          "未知",
+          "小明",
+          "小红"
+        ]
+      },
+      {
+        "file_path": "examples\\sample1_empty.srt",
+        "file_name": "sample1_empty.srt",
+        "total_cues": 10,
+        "total_duration_ms": 28000,
+        "total_duration_str": "00:00:28.000",
+        "total_words": 126,
+        "total_chars": 139,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 7,
+        "status": "ok",
+        "words_per_minute": 270.0,
+        "speakers": [
+          "未知",
+          "小明",
+          "小红"
+        ]
+      },
+      {
+        "file_path": "examples\\sample2.srt",
+        "file_name": "sample2.srt",
+        "total_cues": 5,
+        "total_duration_ms": 17000,
+        "total_duration_str": "00:00:17.000",
+        "total_words": 58,
+        "total_chars": 71,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 4,
+        "status": "ok",
+        "words_per_minute": 204.7058823529412,
+        "speakers": [
+          "张三",
+          "李四",
+          "王五"
+        ]
+      },
+      {
+        "file_path": "examples\\sample3.vtt",
+        "file_name": "sample3.vtt",
+        "total_cues": 5,
+        "total_duration_ms": 19000,
+        "total_duration_str": "00:00:19.000",
+        "total_words": 34,
+        "total_chars": 176,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 0,
+        "status": "ok",
+        "words_per_minute": 107.36842105263159,
+        "speakers": [
+          "未知"
+        ]
+      },
+      {
+        "file_path": "examples\\sample3_complete.vtt",
+        "file_name": "sample3_complete.vtt",
+        "total_cues": 8,
+        "total_duration_ms": 29000,
+        "total_duration_str": "00:00:29.000",
+        "total_words": 54,
+        "total_chars": 260,
+        "errors": 0,
+        "warnings": 0,
+        "high_risk": 1,
+        "status": "ok",
+        "words_per_minute": 111.72413793103448,
+        "speakers": [
+          "未知"
+        ]
+      }
+    ]
+  }
+}

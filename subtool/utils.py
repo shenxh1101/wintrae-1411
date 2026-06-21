@@ -129,6 +129,10 @@ def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     total_issues = sum(r['total_issues'] for r in scan_results)
     total_errors = sum(r['severity_counts']['error'] for r in scan_results)
     total_warnings = sum(r['severity_counts']['warning'] for r in scan_results)
+    total_duration = sum(r.get('total_duration_ms', 0) for r in scan_results)
+    total_words = sum(r.get('total_words', 0) for r in scan_results)
+    total_chars = sum(r.get('total_chars', 0) for r in scan_results)
+    total_high_risk = sum(r.get('high_risk_count', 0) for r in scan_results)
     files_with_errors = sum(1 for r in scan_results if r['has_errors'])
 
     file_summaries = []
@@ -136,8 +140,12 @@ def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         entry = build_unified_summary_entry(
             file_path=r['file'],
             total_cues=r['total_cues'],
+            total_duration_ms=r.get('total_duration_ms', 0),
+            total_words=r.get('total_words', 0),
+            total_chars=r.get('total_chars', 0),
             errors=r['severity_counts']['error'],
             warnings=r['severity_counts']['warning'],
+            high_risk=r.get('high_risk_count', 0),
             status='error' if r['has_errors'] else 'ok'
         )
         entry['total_issues'] = r['total_issues']
@@ -149,6 +157,11 @@ def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
         'summary_type': 'scan',
         'total_files': total_files,
         'total_cues': total_cues,
+        'total_duration_ms': total_duration,
+        'total_duration_str': format_ms(total_duration),
+        'total_words': total_words,
+        'total_chars': total_chars,
+        'total_high_risk': total_high_risk,
         'total_issues': total_issues,
         'total_errors': total_errors,
         'total_warnings': total_warnings,
@@ -167,6 +180,9 @@ def generate_scan_summary_report(summary: Dict[str, Any]) -> str:
 
     lines.append(f"总文件数: {summary['total_files']}")
     lines.append(f"总字幕数: {summary['total_cues']}")
+    lines.append(f"总时长: {summary['total_duration_str']}")
+    lines.append(f"总字数: {summary['total_words']} 词 / {summary['total_chars']} 字符")
+    lines.append(f"高风险句子总数: {summary['total_high_risk']}")
     lines.append(f"总问题数: {summary['total_issues']}")
     lines.append(f"  - 错误: {summary['total_errors']}")
     lines.append(f"  - 警告: {summary['total_warnings']}")
@@ -178,13 +194,16 @@ def generate_scan_summary_report(summary: Dict[str, Any]) -> str:
     lines.append("文件详情:")
     lines.append("")
 
-    header = f"{'文件名':<30} {'字幕数':>8} {'错误':>6} {'警告':>6} {'问题总数':>8} {'状态':>8}"
+    header = (f"{'文件名':<28} {'字幕数':>6} {'时长':>11} {'字数':>6} "
+              f"{'错误':>5} {'警告':>5} {'高风险':>6} {'问题':>6} {'状态':>6}")
     lines.append(header)
     lines.append("-" * 80)
 
     for f in summary['files']:
         status = "有错误" if f['status'] == 'error' else "正常"
-        line = f"{f['file_name']:<30} {f['total_cues']:>8} {f['errors']:>6} {f['warnings']:>6} {f['total_issues']:>8} {status:>8}"
+        line = (f"{f['file_name']:<28} {f['total_cues']:>6} {f['total_duration_str']:>11} "
+                f"{f['total_words']:>6} {f['errors']:>5} {f['warnings']:>5} "
+                f"{f['high_risk']:>6} {f['total_issues']:>6} {status:>6}")
         lines.append(line)
 
     lines.append("")

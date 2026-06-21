@@ -1,0 +1,28 @@
+{
+  "input": {
+    "files": [
+      "examples/sample1.srt",
+      "examples/sample2.srt",
+      "examples/sample3_complete.vtt"
+    ]
+  },
+  "output": {
+    "dir": "test_output_v3/merge_only",
+    "format": "srt",
+    "naming": {
+      "suffix": "_allinone",
+      "date_subdir": false
+    },
+    "overwrite": true
+  },
+  "actions": [
+    {
+      "type": "merge",
+      "output": "three_in_one.srt",
+      "params": {
+        "gap": 500,
+        "renumber": true
+      }
+    }
+  ]
+}

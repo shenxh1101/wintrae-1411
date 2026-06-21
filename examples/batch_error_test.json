@@ -1,0 +1,39 @@
+{
+  "input": {
+    "files": [
+      "examples/sample1.srt",
+      "examples/_bad_parse.srt",
+      "examples/sample2.srt",
+      "examples/nonexistent_file_xyz.srt",
+      "examples/sample3_complete.vtt"
+    ]
+  },
+  "output": {
+    "dir": "test_output_v3/error_test",
+    "naming": {
+      "suffix": "_test"
+    },
+    "overwrite": true
+  },
+  "actions": [
+    {
+      "type": "scan"
+    },
+    {
+      "type": "shift",
+      "params": {
+        "offset_ms": 100
+      }
+    },
+    {
+      "type": "stats"
+    },
+    {
+      "type": "merge",
+      "output": "error_test_out.srt",
+      "params": {
+        "renumber": true
+      }
+    }
+  ]
+}

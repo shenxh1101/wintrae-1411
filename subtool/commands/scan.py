@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Any
+import re
 from ..models import SubtitleFile, SubtitleCue
 from ..parser import ms_to_time
 
@@ -16,6 +17,36 @@ class ScanIssue:
 def format_ms(ms: int) -> str:
     h, m, s, ms = ms_to_time(ms)
     return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
+
+
+def _count_words(text: str) -> int:
+    text = text.strip()
+    if not text:
+        return 0
+    if re.search(r'[\u4e00-\u9fff]', text):
+        return len(re.findall(r'[\u4e00-\u9fff]|[a-zA-Z0-9]+', text))
+    return len(text.split())
+
+
+def _count_chars(text: str) -> int:
+    return len(re.sub(r'\s+', '', text))
+
+
+def _estimate_high_risk(subfile: SubtitleFile, wpm_threshold: float = 200,
+                         min_duration_ms: int = 300) -> int:
+    count = 0
+    for cue in subfile.cues:
+        if cue.duration_ms <= 0 or cue.word_count == 0:
+            wpm = 0.0
+        else:
+            minutes = cue.duration_ms / 60000.0
+            wpm = cue.word_count / minutes
+        is_risk = (wpm > wpm_threshold
+                   or cue.duration_ms < min_duration_ms
+                   or len(cue.lines) > 3)
+        if is_risk and not cue.is_empty:
+            count += 1
+    return count
 
 
 def check_overlaps(subfile: SubtitleFile) -> List[ScanIssue]:
@@ -169,6 +200,8 @@ def scan_subtitle(subfile: SubtitleFile, **options) -> Dict[str, Any]:
     max_chars = options.get('max_chars_per_line', 40)
     max_lines = options.get('max_lines', 2)
     min_gap_ms = options.get('min_gap_ms', 0)
+    wpm_threshold = options.get('wpm_threshold', 200)
+    min_duration_ms = options.get('min_duration_ms', 300)
 
     all_issues = []
     all_issues.extend(check_overlaps(subfile))
@@ -185,6 +218,11 @@ def scan_subtitle(subfile: SubtitleFile, **options) -> Dict[str, Any]:
         severity_counts[issue.severity] = severity_counts.get(issue.severity, 0) + 1
         type_counts[issue.type] = type_counts.get(issue.type, 0) + 1
 
+    total_duration_ms = subfile.total_duration_ms
+    total_words = subfile.total_words
+    total_chars = subfile.total_chars
+    high_risk_count = _estimate_high_risk(subfile, wpm_threshold, min_duration_ms)
+
     return {
         "file": subfile.path,
         "total_cues": len(subfile.cues),
@@ -192,7 +230,12 @@ def scan_subtitle(subfile: SubtitleFile, **options) -> Dict[str, Any]:
         "total_issues": len(all_issues),
         "severity_counts": severity_counts,
         "type_counts": type_counts,
-        "has_errors": severity_counts["error"] > 0
+        "has_errors": severity_counts["error"] > 0,
+        "total_duration_ms": total_duration_ms,
+        "total_duration_str": format_ms(total_duration_ms),
+        "total_words": total_words,
+        "total_chars": total_chars,
+        "high_risk_count": high_risk_count
     }
 
 

@@ -1,0 +1,33 @@
+{
+  "input": {
+    "dir": "examples",
+    "recursive": false
+  },
+  "output": {
+    "dir": "test_output_v3/stats_scan",
+    "naming": {
+      "suffix": "_analyzed",
+      "date_subdir": false
+    },
+    "overwrite": false
+  },
+  "actions": [
+    {
+      "type": "scan",
+      "params": {
+        "max_chars": 40,
+        "max_lines": 2,
+        "min_gap": 0,
+        "wpm_threshold": 200,
+        "min_duration": 300
+      }
+    },
+    {
+      "type": "stats",
+      "params": {
+        "wpm_threshold": 200,
+        "min_duration": 300
+      }
+    }
+  ]
+}

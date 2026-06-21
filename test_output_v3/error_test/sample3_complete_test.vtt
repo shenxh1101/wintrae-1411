@@ -1,0 +1,27 @@
+WEBVTT
+
+00:00:01.100 --> 00:00:04.100
+Welcome to our video tutorial.
+
+00:00:04.600 --> 00:00:08.100
+In this lesson, we will learn about subtitle processing.
+
+00:00:08.600 --> 00:00:12.100
+It's a very useful skill for translators.
+
+00:00:12.600 --> 00:00:16.100
+Let's start with the basics.
+
+00:00:16.600 --> 00:00:20.100
+First, we need to understand the subtitle formats.
+
+00:00:20.600 --> 00:00:22.100
+
+
+00:00:22.600 --> 00:00:26.100
+This cue has multiple lines.
+Line two is here.
+Line three too.
+
+00:00:27.100 --> 00:00:30.100
+This cue has an ID before the timestamp.

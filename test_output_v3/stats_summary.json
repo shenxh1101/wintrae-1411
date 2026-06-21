@@ -1,0 +1,104 @@
+{
+  "summary_type": "stats",
+  "total_files": 5,
+  "total_cues": 36,
+  "total_duration_ms": 119000,
+  "total_duration_str": "00:01:59.000",
+  "total_words": 398,
+  "total_chars": 785,
+  "total_high_risk": 19,
+  "avg_words_per_minute": 200.67226890756302,
+  "files": [
+    {
+      "file_path": "examples\\sample1.srt",
+      "file_name": "sample1.srt",
+      "total_cues": 8,
+      "total_duration_ms": 26000,
+      "total_duration_str": "00:00:26.000",
+      "total_words": 126,
+      "total_chars": 139,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 7,
+      "status": "ok",
+      "words_per_minute": 290.7692307692308,
+      "speakers": [
+        "未知",
+        "小明",
+        "小红"
+      ]
+    },
+    {
+      "file_path": "examples\\sample1_empty.srt",
+      "file_name": "sample1_empty.srt",
+      "total_cues": 10,
+      "total_duration_ms": 28000,
+      "total_duration_str": "00:00:28.000",
+      "total_words": 126,
+      "total_chars": 139,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 7,
+      "status": "ok",
+      "words_per_minute": 270.0,
+      "speakers": [
+        "未知",
+        "小明",
+        "小红"
+      ]
+    },
+    {
+      "file_path": "examples\\sample2.srt",
+      "file_name": "sample2.srt",
+      "total_cues": 5,
+      "total_duration_ms": 17000,
+      "total_duration_str": "00:00:17.000",
+      "total_words": 58,
+      "total_chars": 71,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 4,
+      "status": "ok",
+      "words_per_minute": 204.7058823529412,
+      "speakers": [
+        "张三",
+        "李四",
+        "王五"
+      ]
+    },
+    {
+      "file_path": "examples\\sample3.vtt",
+      "file_name": "sample3.vtt",
+      "total_cues": 5,
+      "total_duration_ms": 19000,
+      "total_duration_str": "00:00:19.000",
+      "total_words": 34,
+      "total_chars": 176,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 0,
+      "status": "ok",
+      "words_per_minute": 107.36842105263159,
+      "speakers": [
+        "未知"
+      ]
+    },
+    {
+      "file_path": "examples\\sample3_complete.vtt",
+      "file_name": "sample3_complete.vtt",
+      "total_cues": 8,
+      "total_duration_ms": 29000,
+      "total_duration_str": "00:00:29.000",
+      "total_words": 54,
+      "total_chars": 260,
+      "errors": 0,
+      "warnings": 0,
+      "high_risk": 1,
+      "status": "ok",
+      "words_per_minute": 111.72413793103448,
+      "speakers": [
+        "未知"
+      ]
+    }
+  ]
+}
