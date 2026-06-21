@@ -99,6 +99,30 @@ def scan_issues_to_json(scan_results: List[Dict[str, Any]]) -> str:
     return json.dumps(serializable, ensure_ascii=False, indent=2)
 
 
+def build_unified_summary_entry(file_path: str,
+                                  total_cues: int = 0,
+                                  total_duration_ms: int = 0,
+                                  total_words: int = 0,
+                                  total_chars: int = 0,
+                                  errors: int = 0,
+                                  warnings: int = 0,
+                                  high_risk: int = 0,
+                                  status: str = 'ok') -> Dict[str, Any]:
+    return {
+        'file_path': file_path,
+        'file_name': os.path.basename(file_path),
+        'total_cues': total_cues,
+        'total_duration_ms': total_duration_ms,
+        'total_duration_str': format_ms(total_duration_ms),
+        'total_words': total_words,
+        'total_chars': total_chars,
+        'errors': errors,
+        'warnings': warnings,
+        'high_risk': high_risk,
+        'status': status
+    }
+
+
 def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     total_files = len(scan_results)
     total_cues = sum(r['total_cues'] for r in scan_results)
@@ -109,19 +133,20 @@ def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
 
     file_summaries = []
     for r in scan_results:
-        file_summaries.append({
-            'file': r['file'],
-            'filename': os.path.basename(r['file']),
-            'total_cues': r['total_cues'],
-            'total_issues': r['total_issues'],
-            'errors': r['severity_counts']['error'],
-            'warnings': r['severity_counts']['warning'],
-            'infos': r['severity_counts']['info'],
-            'has_errors': r['has_errors'],
-            'issue_types': r['type_counts']
-        })
+        entry = build_unified_summary_entry(
+            file_path=r['file'],
+            total_cues=r['total_cues'],
+            errors=r['severity_counts']['error'],
+            warnings=r['severity_counts']['warning'],
+            status='error' if r['has_errors'] else 'ok'
+        )
+        entry['total_issues'] = r['total_issues']
+        entry['infos'] = r['severity_counts']['info']
+        entry['issue_types'] = r['type_counts']
+        file_summaries.append(entry)
 
     return {
+        'summary_type': 'scan',
         'total_files': total_files,
         'total_cues': total_cues,
         'total_issues': total_issues,
@@ -158,8 +183,8 @@ def generate_scan_summary_report(summary: Dict[str, Any]) -> str:
     lines.append("-" * 80)
 
     for f in summary['files']:
-        status = "有错误" if f['has_errors'] else "正常"
-        line = f"{f['filename']:<30} {f['total_cues']:>8} {f['errors']:>6} {f['warnings']:>6} {f['total_issues']:>8} {status:>8}"
+        status = "有错误" if f['status'] == 'error' else "正常"
+        line = f"{f['file_name']:<30} {f['total_cues']:>8} {f['errors']:>6} {f['warnings']:>6} {f['total_issues']:>8} {status:>8}"
         lines.append(line)
 
     lines.append("")
@@ -180,21 +205,21 @@ def generate_stats_summary(stats_list: List[SubtitleStats]) -> Dict[str, Any]:
 
     file_summaries = []
     for s in stats_list:
-        duration_min = s.total_duration_ms / 60000.0 if s.total_duration_ms > 0 else 0
-        file_summaries.append({
-            'file': s.file,
-            'filename': os.path.basename(s.file),
-            'total_cues': s.total_cues,
-            'total_duration_ms': s.total_duration_ms,
-            'total_duration_str': format_ms(s.total_duration_ms),
-            'total_words': s.total_words,
-            'total_chars': s.total_chars,
-            'words_per_minute': s.words_per_minute,
-            'high_risk_count': len(s.high_risk_sentences),
-            'speakers': list(s.speaker_stats.keys())
-        })
+        entry = build_unified_summary_entry(
+            file_path=s.file,
+            total_cues=s.total_cues,
+            total_duration_ms=s.total_duration_ms,
+            total_words=s.total_words,
+            total_chars=s.total_chars,
+            high_risk=len(s.high_risk_sentences),
+            status='ok'
+        )
+        entry['words_per_minute'] = s.words_per_minute
+        entry['speakers'] = list(s.speaker_stats.keys())
+        file_summaries.append(entry)
 
     return {
+        'summary_type': 'stats',
         'total_files': total_files,
         'total_cues': total_cues,
         'total_duration_ms': total_duration,
@@ -231,8 +256,8 @@ def generate_stats_summary_report(summary: Dict[str, Any]) -> str:
     lines.append("-" * 80)
 
     for f in summary['files']:
-        wpm_str = f"{f['words_per_minute']:.1f}"
-        line = f"{f['filename']:<30} {f['total_cues']:>8} {f['total_duration_str']:>12} {f['total_words']:>8} {wpm_str:>10} {f['high_risk_count']:>8}"
+        wpm_str = f"{f['words_per_minute']:.1f}" if 'words_per_minute' in f else "N/A"
+        line = f"{f['file_name']:<30} {f['total_cues']:>8} {f['total_duration_str']:>12} {f['total_words']:>8} {wpm_str:>10} {f['high_risk']:>8}"
         lines.append(line)
 
     lines.append("")
@@ -277,7 +302,8 @@ def stats_to_json(stats_list: List[SubtitleStats]) -> str:
 def build_output_path(source_path: str, output_dir: Optional[str] = None,
                       suffix: str = '', prefix: str = '',
                       use_date_subdir: bool = False,
-                      target_format: str = None) -> str:
+                      target_format: str = None,
+                      allow_overwrite: bool = False) -> str:
     dirname = os.path.dirname(source_path)
     basename = os.path.basename(source_path)
     name, ext = os.path.splitext(basename)
@@ -293,14 +319,24 @@ def build_output_path(source_path: str, output_dir: Optional[str] = None,
         date_str = datetime.now().strftime('%Y%m%d')
         base_dir = os.path.join(base_dir, date_str)
 
-    return os.path.join(base_dir, new_name)
+    output_path = os.path.join(base_dir, new_name)
+
+    if not allow_overwrite and os.path.exists(output_path):
+        base, ext = os.path.splitext(new_name)
+        counter = 1
+        while os.path.exists(os.path.join(base_dir, f"{base}_{counter}{ext}")):
+            counter += 1
+        output_path = os.path.join(base_dir, f"{base}_{counter}{ext}")
+
+    return output_path
 
 
 def process_output(subfile: SubtitleFile, output_dir: str = None,
                    target_format: str = None, inplace: bool = False,
                    backup_method: str = 'copy', backup_dir: str = None,
                    suffix: str = '', prefix: str = '',
-                   use_date_subdir: bool = False) -> str:
+                   use_date_subdir: bool = False,
+                   allow_overwrite: bool = False) -> str:
     if inplace:
         backup_file(subfile.path, backup_dir, backup_method)
         output_path = subfile.path
@@ -311,9 +347,11 @@ def process_output(subfile: SubtitleFile, output_dir: str = None,
             suffix=suffix,
             prefix=prefix,
             use_date_subdir=use_date_subdir,
-            target_format=target_format
+            target_format=target_format,
+            allow_overwrite=allow_overwrite
         )
 
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     return write_subtitle(subfile, output_path, target_format)
 
 

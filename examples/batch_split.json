@@ -1,0 +1,35 @@
+{
+  "input": {
+    "dir": "examples",
+    "recursive": false
+  },
+  "output": {
+    "dir": "test_output_v3/split_output",
+    "naming": {
+      "suffix": "",
+      "date_subdir": true
+    },
+    "overwrite": false
+  },
+  "actions": [
+    {
+      "type": "scan",
+      "params": {
+        "max_chars": 50
+      }
+    },
+    {
+      "type": "split",
+      "params": {
+        "method": "cue_count",
+        "max_cues": 3
+      }
+    },
+    {
+      "type": "stats",
+      "params": {
+        "wpm_threshold": 150
+      }
+    }
+  ]
+}

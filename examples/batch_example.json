@@ -1,0 +1,44 @@
+{
+  "input": {
+    "dir": "examples",
+    "recursive": false
+  },
+  "output": {
+    "dir": "test_output_v3/batch_output",
+    "format": null,
+    "naming": {
+      "prefix": "",
+      "suffix": "_processed",
+      "date_subdir": false
+    },
+    "overwrite": false,
+    "backup": "none",
+    "inplace": false
+  },
+  "actions": [
+    {
+      "type": "scan",
+      "params": {
+        "max_chars": 40,
+        "max_lines": 2
+      }
+    },
+    {
+      "type": "shift",
+      "params": {
+        "offset_ms": 500
+      }
+    },
+    {
+      "type": "stats",
+      "params": {
+        "wpm_threshold": 200,
+        "min_duration": 300
+      }
+    }
+  ],
+  "report": {
+    "dir": "test_output_v3/reports",
+    "format": "txt"
+  }
+}

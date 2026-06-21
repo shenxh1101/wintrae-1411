@@ -4,11 +4,17 @@ import click
 
 from .__init__ import __version__
 from .parser import parse_subtitle, find_subtitle_files
+from .writer import write_subtitle
+from .models import SubtitleFile
 from .commands.scan import scan_subtitle, generate_scan_report
 from .commands.shift import shift_subtitle
 from .commands.split import split_subtitle
 from .commands.merge import merge_subtitles
 from .commands.stats import analyze_subtitle, generate_stats_report
+from .commands.batch import (
+    load_config, validate_config, execute_batch,
+    generate_batch_report, batch_summary_to_json
+)
 from .utils import (
     parse_time_string, save_report, scan_issues_to_json,
     stats_to_json, process_output, generate_filename,
@@ -134,9 +140,10 @@ def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path,
 @click.option('--suffix', default='', help='文件名后缀')
 @click.option('--prefix', default='', help='文件名前缀')
 @click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
+@click.option('--overwrite', is_flag=True, help='允许覆盖已有文件')
 def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
           cue_end, output_dir, target_format, inplace, backup_method, backup_dir,
-          suffix, prefix, date_subdir):
+          suffix, prefix, date_subdir, overwrite):
     """按毫秒整体前后移动或只调整指定区间"""
     files = get_input_files(input_path, recursive)
 
@@ -162,6 +169,8 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
         click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
     if date_subdir:
         click.echo("输出到日期子目录")
+    if overwrite:
+        click.echo("允许覆盖已有文件")
     click.echo("")
 
     for file_path in files:
@@ -170,7 +179,8 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
             shifted = shift_subtitle(subfile, offset_ms, **options)
             output_path = process_output(
                 shifted, output_dir, target_format, inplace, backup_method,
-                backup_dir, suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
+                backup_dir, suffix=suffix, prefix=prefix, use_date_subdir=date_subdir,
+                allow_overwrite=overwrite
             )
             click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.relpath(output_path, start=output_dir or '.')}")
         except Exception as e:
@@ -191,8 +201,9 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
 @click.option('--suffix', default='', help='文件名后缀')
 @click.option('--prefix', default='', help='文件名前缀')
 @click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
+@click.option('--overwrite', is_flag=True, help='允许覆盖已有文件')
 def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
-          target_format, backup_method, suffix, prefix, date_subdir):
+          target_format, backup_method, suffix, prefix, date_subdir, overwrite):
     """按时长、行数或说话人标记拆分文件"""
     files = get_input_files(input_path, recursive=False)
 
@@ -213,6 +224,8 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
         click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
     if date_subdir:
         click.echo("输出到日期子目录")
+    if overwrite:
+        click.echo("允许覆盖已有文件")
     click.echo("")
 
     for file_path in files:
@@ -220,21 +233,11 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
             subfile = parse_subtitle(file_path)
             parts = split_subtitle(subfile, **options)
 
-            for i, part in enumerate(parts):
-                part_path = build_output_path(
-                    part.path,
-                    output_dir=output_dir,
-                    suffix=suffix,
-                    prefix=prefix,
-                    use_date_subdir=date_subdir,
-                    target_format=target_format
-                )
-                part_dir = os.path.dirname(part_path)
-                os.makedirs(part_dir, exist_ok=True)
-
+            for part in parts:
                 final_path = process_output(
                     part, output_dir, target_format, False, backup_method,
-                    suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
+                    suffix=suffix, prefix=prefix, use_date_subdir=date_subdir,
+                    allow_overwrite=overwrite
                 )
                 click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.relpath(final_path, start=output_dir or '.')} "
                            f"({len(part.cues)}条字幕)")
@@ -251,27 +254,29 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
 @click.option('--suffix', default='', help='文件名后缀')
 @click.option('--prefix', default='', help='文件名前缀')
 @click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
-def merge(input_files, output, gap, renumber, target_format, suffix, prefix, date_subdir):
+@click.option('--overwrite', is_flag=True, help='允许覆盖已有文件')
+def merge(input_files, output, gap, renumber, target_format, suffix, prefix, date_subdir, overwrite):
     """合并多段字幕并重新编号"""
     if not input_files:
         click.echo("请指定至少一个输入文件")
         return
 
-    output_path = output
-    if suffix or prefix or date_subdir:
-        output_path = build_output_path(
-            output,
-            suffix=suffix,
-            prefix=prefix,
-            use_date_subdir=date_subdir,
-            target_format=target_format
-        )
+    final_path = build_output_path(
+        output,
+        suffix=suffix,
+        prefix=prefix,
+        use_date_subdir=date_subdir,
+        target_format=target_format,
+        allow_overwrite=overwrite
+    )
 
-    click.echo(f"合并 {len(input_files)} 个字幕文件 -> {output_path}")
+    click.echo(f"合并 {len(input_files)} 个字幕文件 -> {final_path}")
     if suffix or prefix:
         click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
     if date_subdir:
         click.echo("输出到日期子目录")
+    if overwrite:
+        click.echo("允许覆盖已有文件")
     click.echo("")
 
     subfiles = []
@@ -289,13 +294,11 @@ def merge(input_files, output, gap, renumber, target_format, suffix, prefix, dat
         return
 
     try:
-        merged = merge_subtitles(subfiles, output_path, renumber=renumber, gap_ms=gap)
-        final_path = process_output(
-            merged, None, target_format, False, 'none',
-            suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
-        )
+        merged = merge_subtitles(subfiles, final_path, renumber=renumber, gap_ms=gap)
+        os.makedirs(os.path.dirname(os.path.abspath(final_path)) or '.', exist_ok=True)
+        written_path = write_subtitle(merged, final_path, target_format)
         click.echo("")
-        click.echo(f"[OK] 合并完成: {final_path} ({len(merged.cues)}条字幕)")
+        click.echo(f"[OK] 合并完成: {written_path} ({len(merged.cues)}条字幕)")
     except Exception as e:
         click.echo(f"[FAIL] 合并失败: {str(e)}")
 
@@ -371,6 +374,87 @@ def stats(input_path, recursive, wpm_threshold, min_duration, report_path,
 
         saved_path = save_report(content, summary_path, report_format)
         click.echo(f"汇总报告已保存到: {saved_path}")
+
+
+@main.command()
+@click.argument('config_path', type=click.Path(exists=True))
+@click.option('--dry-run', is_flag=True, help='预览模式，不实际写入文件')
+@click.option('--report', 'report_path', type=click.Path(), help='批处理报告输出路径')
+@click.option('--report-format', type=click.Choice(['txt', 'json']), default='txt', help='报告格式')
+@click.option('--verbose', '-v', is_flag=True, help='显示详细输出')
+def batch(config_path, dry_run, report_path, report_format, verbose):
+    """使用配置文件批量执行 scan/shift/split/merge/stats 任务"""
+    try:
+        config = load_config(config_path)
+    except Exception as e:
+        click.echo(f"[FAIL] 配置文件加载失败: {str(e)}", err=True)
+        sys.exit(1)
+
+    errors = validate_config(config)
+    if errors:
+        click.echo("[FAIL] 配置文件验证失败:", err=True)
+        for error in errors:
+            click.echo(f"  - {error}", err=True)
+        sys.exit(1)
+
+    click.echo(f"加载配置: {config_path}")
+    if dry_run:
+        click.echo("模式: 预览 (dry-run)")
+    click.echo("")
+
+    if dry_run:
+        from .commands.batch import get_input_files_from_config
+        files = get_input_files_from_config(config)
+
+        click.echo(f"待处理文件: {len(files)} 个")
+        for f in files[:10]:
+            click.echo(f"  - {os.path.basename(f)}")
+        if len(files) > 10:
+            click.echo(f"  ... 还有 {len(files) - 10} 个文件")
+        click.echo("")
+
+        actions = config.get('actions', [])
+        click.echo(f"待执行动作: {len(actions)} 个")
+        for i, action in enumerate(actions):
+            click.echo(f"  {i+1}. {action['type']}")
+            if 'params' in action:
+                for k, v in action['params'].items():
+                    click.echo(f"     {k}: {v}")
+        click.echo("")
+
+        output_cfg = config.get('output', {})
+        naming = output_cfg.get('naming', {})
+        click.echo("输出配置:")
+        if output_cfg.get('dir'):
+            click.echo(f"  输出目录: {output_cfg['dir']}")
+        if naming.get('prefix'):
+            click.echo(f"  前缀: {naming['prefix']}")
+        if naming.get('suffix'):
+            click.echo(f"  后缀: {naming['suffix']}")
+        if naming.get('date_subdir'):
+            click.echo(f"  日期子目录: 是")
+        click.echo(f"  覆盖已有文件: {'是' if output_cfg.get('overwrite') else '否'}")
+        click.echo("")
+
+        click.echo("[INFO] 预览模式: 不会实际修改文件")
+        return
+
+    summary = execute_batch(config, verbose=verbose)
+
+    report = generate_batch_report(summary, config)
+    click.echo(report)
+
+    if report_path:
+        if report_format == 'json':
+            content = batch_summary_to_json(summary, config)
+        else:
+            content = report
+
+        saved_path = save_report(content, report_path, report_format)
+        click.echo(f"批处理报告已保存到: {saved_path}")
+
+    if summary.failed_files > 0:
+        sys.exit(1)
 
 
 if __name__ == '__main__':
