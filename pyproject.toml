@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subtool"
+version = "1.0.0"
+description = "字幕批量检查和整理工具 - 支持scan、shift、split、merge、stats"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "SubTool Team" }]
+license = { text = "MIT" }
+dependencies = [
+    "click>=8.0",
+]
+
+[project.scripts]
+subtool = "subtool.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["subtool*"]
