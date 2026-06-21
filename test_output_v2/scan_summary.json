@@ -1,0 +1,53 @@
+{
+  "total_files": 3,
+  "total_cues": 23,
+  "total_issues": 11,
+  "total_errors": 1,
+  "total_warnings": 10,
+  "files_with_errors": 1,
+  "files_without_errors": 2,
+  "files": [
+    {
+      "file": "examples\\sample1_empty.srt",
+      "filename": "sample1_empty.srt",
+      "total_cues": 10,
+      "total_issues": 6,
+      "errors": 1,
+      "warnings": 5,
+      "infos": 0,
+      "has_errors": true,
+      "issue_types": {
+        "overlap": 1,
+        "empty": 3,
+        "long_line": 1,
+        "long_lines": 1
+      }
+    },
+    {
+      "file": "examples\\sample2.srt",
+      "filename": "sample2.srt",
+      "total_cues": 5,
+      "total_issues": 0,
+      "errors": 0,
+      "warnings": 0,
+      "infos": 0,
+      "has_errors": false,
+      "issue_types": {}
+    },
+    {
+      "file": "examples\\sample3_complete.vtt",
+      "filename": "sample3_complete.vtt",
+      "total_cues": 8,
+      "total_issues": 5,
+      "errors": 0,
+      "warnings": 5,
+      "infos": 0,
+      "has_errors": false,
+      "issue_types": {
+        "empty": 1,
+        "long_line": 3,
+        "long_lines": 1
+      }
+    }
+  ]
+}

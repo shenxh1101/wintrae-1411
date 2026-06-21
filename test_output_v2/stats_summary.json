@@ -1,0 +1,58 @@
+{
+  "total_files": 3,
+  "total_cues": 23,
+  "total_duration_ms": 74000,
+  "total_duration_str": "00:01:14.000",
+  "total_words": 238,
+  "total_chars": 470,
+  "total_high_risk": 16,
+  "avg_words_per_minute": 192.97297297297297,
+  "files": [
+    {
+      "file": "examples\\sample1_empty.srt",
+      "filename": "sample1_empty.srt",
+      "total_cues": 10,
+      "total_duration_ms": 28000,
+      "total_duration_str": "00:00:28.000",
+      "total_words": 126,
+      "total_chars": 139,
+      "words_per_minute": 270.0,
+      "high_risk_count": 7,
+      "speakers": [
+        "未知",
+        "小明",
+        "小红"
+      ]
+    },
+    {
+      "file": "examples\\sample2.srt",
+      "filename": "sample2.srt",
+      "total_cues": 5,
+      "total_duration_ms": 17000,
+      "total_duration_str": "00:00:17.000",
+      "total_words": 58,
+      "total_chars": 71,
+      "words_per_minute": 204.7058823529412,
+      "high_risk_count": 5,
+      "speakers": [
+        "张三",
+        "李四",
+        "王五"
+      ]
+    },
+    {
+      "file": "examples\\sample3_complete.vtt",
+      "filename": "sample3_complete.vtt",
+      "total_cues": 8,
+      "total_duration_ms": 29000,
+      "total_duration_str": "00:00:29.000",
+      "total_words": 54,
+      "total_chars": 260,
+      "words_per_minute": 111.72413793103448,
+      "high_risk_count": 4,
+      "speakers": [
+        "未知"
+      ]
+    }
+  ]
+}

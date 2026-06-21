@@ -63,15 +63,22 @@ def parse_srt(content: str) -> List[SubtitleCue]:
 
     for block in blocks:
         lines = block.strip().split('\n')
-        if len(lines) < 3:
+        if len(lines) < 2:
             continue
+
+        index = None
+        time_line_idx = 0
 
         try:
             index = int(lines[0].strip())
+            time_line_idx = 1
         except ValueError:
+            time_line_idx = 0
+
+        if time_line_idx >= len(lines):
             continue
 
-        time_match = TIMESTAMP_PATTERN.search(lines[1])
+        time_match = TIMESTAMP_PATTERN.search(lines[time_line_idx])
         if not time_match:
             continue
 
@@ -88,7 +95,13 @@ def parse_srt(content: str) -> List[SubtitleCue]:
             int(time_match.group(8).ljust(3, '0')[:3])
         )
 
-        text = '\n'.join(lines[2:]).strip()
+        text_lines = lines[time_line_idx + 1:]
+        text = '\n'.join(text_lines)
+        text = text.rstrip('\n')
+
+        if index is None:
+            index = len(cues) + 1
+
         cue = SubtitleCue(index=index, start_ms=start_ms, end_ms=end_ms, text=text)
         cue.extract_speaker()
         cues.append(cue)
@@ -100,16 +113,50 @@ def parse_vtt(content: str) -> List[SubtitleCue]:
     cues = []
     lines = content.split('\n')
     i = 0
+    n = len(lines)
 
-    while i < len(lines) and not lines[i].strip().startswith('-->'):
+    while i < n and not lines[i].strip().upper().startswith('WEBVTT'):
+        i += 1
+    if i < n:
         i += 1
 
     index = 1
-    while i < len(lines):
+    while i < n:
         line = lines[i].strip()
 
-        time_match = TIMESTAMP_PATTERN.search(line)
-        if time_match:
+        if not line:
+            i += 1
+            continue
+
+        if line.upper().startswith('NOTE'):
+            i += 1
+            while i < n and lines[i].strip():
+                i += 1
+            continue
+
+        if line.upper().startswith('STYLE'):
+            i += 1
+            while i < n and lines[i].strip():
+                i += 1
+            continue
+
+        if ':' in line and not TIMESTAMP_PATTERN.search(line):
+            i += 1
+            continue
+
+        cue_id = None
+        time_line = None
+
+        if TIMESTAMP_PATTERN.search(line):
+            time_line = line
+        else:
+            cue_id = line
+            i += 1
+            if i < n:
+                time_line = lines[i].strip()
+
+        if time_line and TIMESTAMP_PATTERN.search(time_line):
+            time_match = TIMESTAMP_PATTERN.search(time_line)
             start_ms = time_to_ms(
                 int(time_match.group(1)),
                 int(time_match.group(2)),
@@ -125,16 +172,20 @@ def parse_vtt(content: str) -> List[SubtitleCue]:
 
             i += 1
             text_lines = []
-            while i < len(lines) and lines[i].strip() and '-->' not in lines[i]:
+            while i < n and lines[i].strip() and not TIMESTAMP_PATTERN.search(lines[i]):
+                next_line = lines[i].strip()
+                if next_line.upper().startswith('NOTE'):
+                    break
                 text_lines.append(lines[i])
                 i += 1
 
-            text = '\n'.join(text_lines).strip()
-            if text or start_ms != end_ms:
-                cue = SubtitleCue(index=index, start_ms=start_ms, end_ms=end_ms, text=text)
-                cue.extract_speaker()
-                cues.append(cue)
-                index += 1
+            text = '\n'.join(text_lines)
+            text = text.rstrip('\n')
+
+            cue = SubtitleCue(index=index, start_ms=start_ms, end_ms=end_ms, text=text)
+            cue.extract_speaker()
+            cues.append(cue)
+            index += 1
         else:
             i += 1
 

@@ -2,11 +2,11 @@ import os
 import json
 import csv
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from .models import SubtitleFile
 from .writer import write_subtitle, backup_file
-from .commands.scan import ScanIssue
+from .commands.scan import ScanIssue, format_ms
 from .commands.stats import SubtitleStats
 
 
@@ -99,6 +99,147 @@ def scan_issues_to_json(scan_results: List[Dict[str, Any]]) -> str:
     return json.dumps(serializable, ensure_ascii=False, indent=2)
 
 
+def generate_scan_summary(scan_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    total_files = len(scan_results)
+    total_cues = sum(r['total_cues'] for r in scan_results)
+    total_issues = sum(r['total_issues'] for r in scan_results)
+    total_errors = sum(r['severity_counts']['error'] for r in scan_results)
+    total_warnings = sum(r['severity_counts']['warning'] for r in scan_results)
+    files_with_errors = sum(1 for r in scan_results if r['has_errors'])
+
+    file_summaries = []
+    for r in scan_results:
+        file_summaries.append({
+            'file': r['file'],
+            'filename': os.path.basename(r['file']),
+            'total_cues': r['total_cues'],
+            'total_issues': r['total_issues'],
+            'errors': r['severity_counts']['error'],
+            'warnings': r['severity_counts']['warning'],
+            'infos': r['severity_counts']['info'],
+            'has_errors': r['has_errors'],
+            'issue_types': r['type_counts']
+        })
+
+    return {
+        'total_files': total_files,
+        'total_cues': total_cues,
+        'total_issues': total_issues,
+        'total_errors': total_errors,
+        'total_warnings': total_warnings,
+        'files_with_errors': files_with_errors,
+        'files_without_errors': total_files - files_with_errors,
+        'files': file_summaries
+    }
+
+
+def generate_scan_summary_report(summary: Dict[str, Any]) -> str:
+    lines = []
+    lines.append("=" * 80)
+    lines.append("字幕扫描汇总报告")
+    lines.append("=" * 80)
+    lines.append("")
+
+    lines.append(f"总文件数: {summary['total_files']}")
+    lines.append(f"总字幕数: {summary['total_cues']}")
+    lines.append(f"总问题数: {summary['total_issues']}")
+    lines.append(f"  - 错误: {summary['total_errors']}")
+    lines.append(f"  - 警告: {summary['total_warnings']}")
+    lines.append(f"有错误文件: {summary['files_with_errors']}")
+    lines.append(f"无错误文件: {summary['files_without_errors']}")
+    lines.append("")
+
+    lines.append("-" * 80)
+    lines.append("文件详情:")
+    lines.append("")
+
+    header = f"{'文件名':<30} {'字幕数':>8} {'错误':>6} {'警告':>6} {'问题总数':>8} {'状态':>8}"
+    lines.append(header)
+    lines.append("-" * 80)
+
+    for f in summary['files']:
+        status = "有错误" if f['has_errors'] else "正常"
+        line = f"{f['filename']:<30} {f['total_cues']:>8} {f['errors']:>6} {f['warnings']:>6} {f['total_issues']:>8} {status:>8}"
+        lines.append(line)
+
+    lines.append("")
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
+
+def generate_stats_summary(stats_list: List[SubtitleStats]) -> Dict[str, Any]:
+    total_files = len(stats_list)
+    total_cues = sum(s.total_cues for s in stats_list)
+    total_duration = sum(s.total_duration_ms for s in stats_list)
+    total_words = sum(s.total_words for s in stats_list)
+    total_chars = sum(s.total_chars for s in stats_list)
+    total_high_risk = sum(len(s.high_risk_sentences) for s in stats_list)
+
+    total_minutes = total_duration / 60000.0 if total_duration > 0 else 0
+    avg_wpm = total_words / total_minutes if total_minutes > 0 else 0
+
+    file_summaries = []
+    for s in stats_list:
+        duration_min = s.total_duration_ms / 60000.0 if s.total_duration_ms > 0 else 0
+        file_summaries.append({
+            'file': s.file,
+            'filename': os.path.basename(s.file),
+            'total_cues': s.total_cues,
+            'total_duration_ms': s.total_duration_ms,
+            'total_duration_str': format_ms(s.total_duration_ms),
+            'total_words': s.total_words,
+            'total_chars': s.total_chars,
+            'words_per_minute': s.words_per_minute,
+            'high_risk_count': len(s.high_risk_sentences),
+            'speakers': list(s.speaker_stats.keys())
+        })
+
+    return {
+        'total_files': total_files,
+        'total_cues': total_cues,
+        'total_duration_ms': total_duration,
+        'total_duration_str': format_ms(total_duration),
+        'total_words': total_words,
+        'total_chars': total_chars,
+        'total_high_risk': total_high_risk,
+        'avg_words_per_minute': avg_wpm,
+        'files': file_summaries
+    }
+
+
+def generate_stats_summary_report(summary: Dict[str, Any]) -> str:
+    lines = []
+    lines.append("=" * 80)
+    lines.append("字幕统计汇总报告")
+    lines.append("=" * 80)
+    lines.append("")
+
+    lines.append(f"总文件数: {summary['total_files']}")
+    lines.append(f"总字幕数: {summary['total_cues']}")
+    lines.append(f"总时长: {summary['total_duration_str']}")
+    lines.append(f"总字数: {summary['total_words']} 词 / {summary['total_chars']} 字符")
+    lines.append(f"平均语速: {summary['avg_words_per_minute']:.1f} 词/分钟")
+    lines.append(f"高风险句子总数: {summary['total_high_risk']}")
+    lines.append("")
+
+    lines.append("-" * 80)
+    lines.append("文件详情:")
+    lines.append("")
+
+    header = f"{'文件名':<30} {'字幕数':>8} {'时长':>12} {'字数':>8} {'语速':>10} {'高风险':>8}"
+    lines.append(header)
+    lines.append("-" * 80)
+
+    for f in summary['files']:
+        wpm_str = f"{f['words_per_minute']:.1f}"
+        line = f"{f['filename']:<30} {f['total_cues']:>8} {f['total_duration_str']:>12} {f['total_words']:>8} {wpm_str:>10} {f['high_risk_count']:>8}"
+        lines.append(line)
+
+    lines.append("")
+    lines.append("=" * 80)
+    return "\n".join(lines)
+
+
 def stats_to_json(stats_list: List[SubtitleStats]) -> str:
     serializable = []
     for stats in stats_list:
@@ -133,18 +274,45 @@ def stats_to_json(stats_list: List[SubtitleStats]) -> str:
     return json.dumps(serializable, ensure_ascii=False, indent=2)
 
 
+def build_output_path(source_path: str, output_dir: Optional[str] = None,
+                      suffix: str = '', prefix: str = '',
+                      use_date_subdir: bool = False,
+                      target_format: str = None) -> str:
+    dirname = os.path.dirname(source_path)
+    basename = os.path.basename(source_path)
+    name, ext = os.path.splitext(basename)
+
+    if target_format:
+        ext = f'.{target_format}'
+
+    new_name = f"{prefix}{name}{suffix}{ext}"
+
+    base_dir = output_dir if output_dir else dirname
+
+    if use_date_subdir:
+        date_str = datetime.now().strftime('%Y%m%d')
+        base_dir = os.path.join(base_dir, date_str)
+
+    return os.path.join(base_dir, new_name)
+
+
 def process_output(subfile: SubtitleFile, output_dir: str = None,
                    target_format: str = None, inplace: bool = False,
-                   backup_method: str = 'copy', backup_dir: str = None) -> str:
+                   backup_method: str = 'copy', backup_dir: str = None,
+                   suffix: str = '', prefix: str = '',
+                   use_date_subdir: bool = False) -> str:
     if inplace:
-        backup_path = backup_file(subfile.path, backup_dir, backup_method)
+        backup_file(subfile.path, backup_dir, backup_method)
         output_path = subfile.path
-    elif output_dir:
-        filename = os.path.basename(subfile.path)
-        output_path = os.path.join(output_dir, filename)
     else:
-        base, ext = os.path.splitext(subfile.path)
-        output_path = f"{base}_processed{ext}"
+        output_path = build_output_path(
+            subfile.path,
+            output_dir=output_dir,
+            suffix=suffix,
+            prefix=prefix,
+            use_date_subdir=use_date_subdir,
+            target_format=target_format
+        )
 
     return write_subtitle(subfile, output_path, target_format)
 

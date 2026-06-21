@@ -11,7 +11,10 @@ from .commands.merge import merge_subtitles
 from .commands.stats import analyze_subtitle, generate_stats_report
 from .utils import (
     parse_time_string, save_report, scan_issues_to_json,
-    stats_to_json, process_output, generate_filename
+    stats_to_json, process_output, generate_filename,
+    generate_scan_summary, generate_scan_summary_report,
+    generate_stats_summary, generate_stats_summary_report,
+    build_output_path
 )
 
 
@@ -39,9 +42,12 @@ def main(verbose):
 @click.option('--max-chars', default=40, help='每行最大字符数')
 @click.option('--max-lines', default=2, help='每条字幕最大行数')
 @click.option('--min-gap', default=0, help='最小间隔时间(ms)')
-@click.option('--report', 'report_path', type=click.Path(), help='问题报告输出路径')
+@click.option('--report', 'report_path', type=click.Path(), help='详细报告输出路径')
+@click.option('--summary', 'summary_path', type=click.Path(), help='汇总报告输出路径')
 @click.option('--report-format', type=click.Choice(['txt', 'json']), default='txt', help='报告格式')
-def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path, report_format):
+@click.option('--summary-only', is_flag=True, help='只显示汇总报告，不显示详细报告')
+def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path,
+         summary_path, report_format, summary_only):
     """检查时间轴重叠、空字幕、过长行和编号断裂"""
     files = get_input_files(input_path, recursive)
 
@@ -74,17 +80,37 @@ def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path, repo
             click.echo(f"[FAIL] {os.path.basename(file_path)}: 解析失败 - {str(e)}")
 
     click.echo("")
-    report = generate_scan_report(results)
-    click.echo(report)
+
+    summary = generate_scan_summary(results)
+
+    if not summary_only:
+        report = generate_scan_report(results)
+        click.echo(report)
+
+    summary_report = generate_scan_summary_report(summary)
+    if summary_only:
+        click.echo(summary_report)
+    else:
+        click.echo("")
+        click.echo(summary_report)
 
     if report_path:
         if report_format == 'json':
             content = scan_issues_to_json(results)
         else:
-            content = report
+            content = generate_scan_report(results)
 
         saved_path = save_report(content, report_path, report_format)
-        click.echo(f"报告已保存到: {saved_path}")
+        click.echo(f"详细报告已保存到: {saved_path}")
+
+    if summary_path:
+        if report_format == 'json':
+            content = __import__('json').dumps(summary, ensure_ascii=False, indent=2)
+        else:
+            content = summary_report
+
+        saved_path = save_report(content, summary_path, report_format)
+        click.echo(f"汇总报告已保存到: {saved_path}")
 
     total_errors = sum(r["severity_counts"]["error"] for r in results)
     if total_errors > 0:
@@ -105,8 +131,12 @@ def scan(input_path, recursive, max_chars, max_lines, min_gap, report_path, repo
 @click.option('--backup', 'backup_method', type=click.Choice(['copy', 'move', 'none']),
               default='copy', help='备份方式')
 @click.option('--backup-dir', type=click.Path(), help='备份目录')
+@click.option('--suffix', default='', help='文件名后缀')
+@click.option('--prefix', default='', help='文件名前缀')
+@click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
 def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
-          cue_end, output_dir, target_format, inplace, backup_method, backup_dir):
+          cue_end, output_dir, target_format, inplace, backup_method, backup_dir,
+          suffix, prefix, date_subdir):
     """按毫秒整体前后移动或只调整指定区间"""
     files = get_input_files(input_path, recursive)
 
@@ -128,6 +158,10 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
     click.echo(f"将 {len(files)} 个字幕文件 {direction} 偏移 {abs(offset_ms)}ms")
     if any([start_time, end_time, cue_start, cue_end]):
         click.echo("应用区间限制")
+    if suffix or prefix:
+        click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
+    if date_subdir:
+        click.echo("输出到日期子目录")
     click.echo("")
 
     for file_path in files:
@@ -135,9 +169,10 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
             subfile = parse_subtitle(file_path)
             shifted = shift_subtitle(subfile, offset_ms, **options)
             output_path = process_output(
-                shifted, output_dir, target_format, inplace, backup_method, backup_dir
+                shifted, output_dir, target_format, inplace, backup_method,
+                backup_dir, suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
             )
-            click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.basename(output_path)}")
+            click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.relpath(output_path, start=output_dir or '.')}")
         except Exception as e:
             click.echo(f"[FAIL] {os.path.basename(file_path)}: 处理失败 - {str(e)}")
 
@@ -153,8 +188,11 @@ def shift(input_path, offset_ms, recursive, start_time, end_time, cue_start,
 @click.option('--target-format', type=click.Choice(['srt', 'vtt']), help='目标格式')
 @click.option('--backup', 'backup_method', type=click.Choice(['copy', 'move', 'none']),
               default='none', help='备份方式')
+@click.option('--suffix', default='', help='文件名后缀')
+@click.option('--prefix', default='', help='文件名前缀')
+@click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
 def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
-          target_format, backup_method):
+          target_format, backup_method, suffix, prefix, date_subdir):
     """按时长、行数或说话人标记拆分文件"""
     files = get_input_files(input_path, recursive=False)
 
@@ -171,6 +209,10 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
         options['max_lines'] = max_lines
 
     click.echo(f"使用 {method} 方式拆分 {len(files)} 个字幕文件")
+    if suffix or prefix:
+        click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
+    if date_subdir:
+        click.echo("输出到日期子目录")
     click.echo("")
 
     for file_path in files:
@@ -178,14 +220,23 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
             subfile = parse_subtitle(file_path)
             parts = split_subtitle(subfile, **options)
 
-            base_output_dir = output_dir or os.path.dirname(file_path)
-            os.makedirs(base_output_dir, exist_ok=True)
-
-            for part in parts:
-                output_path = process_output(
-                    part, base_output_dir, target_format, False, backup_method
+            for i, part in enumerate(parts):
+                part_path = build_output_path(
+                    part.path,
+                    output_dir=output_dir,
+                    suffix=suffix,
+                    prefix=prefix,
+                    use_date_subdir=date_subdir,
+                    target_format=target_format
                 )
-                click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.basename(output_path)} "
+                part_dir = os.path.dirname(part_path)
+                os.makedirs(part_dir, exist_ok=True)
+
+                final_path = process_output(
+                    part, output_dir, target_format, False, backup_method,
+                    suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
+                )
+                click.echo(f"[OK] {os.path.basename(file_path)} -> {os.path.relpath(final_path, start=output_dir or '.')} "
                            f"({len(part.cues)}条字幕)")
         except Exception as e:
             click.echo(f"[FAIL] {os.path.basename(file_path)}: 处理失败 - {str(e)}")
@@ -197,13 +248,30 @@ def split(input_path, method, max_duration, max_cues, max_lines, output_dir,
 @click.option('--gap', default=0, help='文件间间隔(ms)')
 @click.option('--renumber/--no-renumber', default=True, help='重新编号')
 @click.option('--target-format', type=click.Choice(['srt', 'vtt']), help='目标格式')
-def merge(input_files, output, gap, renumber, target_format):
+@click.option('--suffix', default='', help='文件名后缀')
+@click.option('--prefix', default='', help='文件名前缀')
+@click.option('--date-subdir', is_flag=True, help='按日期创建子目录')
+def merge(input_files, output, gap, renumber, target_format, suffix, prefix, date_subdir):
     """合并多段字幕并重新编号"""
     if not input_files:
         click.echo("请指定至少一个输入文件")
         return
 
-    click.echo(f"合并 {len(input_files)} 个字幕文件 -> {output}")
+    output_path = output
+    if suffix or prefix or date_subdir:
+        output_path = build_output_path(
+            output,
+            suffix=suffix,
+            prefix=prefix,
+            use_date_subdir=date_subdir,
+            target_format=target_format
+        )
+
+    click.echo(f"合并 {len(input_files)} 个字幕文件 -> {output_path}")
+    if suffix or prefix:
+        click.echo(f"命名规则: 前缀='{prefix}', 后缀='{suffix}'")
+    if date_subdir:
+        click.echo("输出到日期子目录")
     click.echo("")
 
     subfiles = []
@@ -221,10 +289,13 @@ def merge(input_files, output, gap, renumber, target_format):
         return
 
     try:
-        merged = merge_subtitles(subfiles, output, renumber=renumber, gap_ms=gap)
-        output_path = process_output(merged, None, target_format, False, 'none')
+        merged = merge_subtitles(subfiles, output_path, renumber=renumber, gap_ms=gap)
+        final_path = process_output(
+            merged, None, target_format, False, 'none',
+            suffix=suffix, prefix=prefix, use_date_subdir=date_subdir
+        )
         click.echo("")
-        click.echo(f"[OK] 合并完成: {output_path} ({len(merged.cues)}条字幕)")
+        click.echo(f"[OK] 合并完成: {final_path} ({len(merged.cues)}条字幕)")
     except Exception as e:
         click.echo(f"[FAIL] 合并失败: {str(e)}")
 
@@ -234,9 +305,12 @@ def merge(input_files, output, gap, renumber, target_format):
 @click.option('--recursive/--no-recursive', default=True, help='递归扫描子目录')
 @click.option('--wpm-threshold', default=200, help='高风险语速阈值(词/分钟)')
 @click.option('--min-duration', default=300, help='最短时长阈值(ms)')
-@click.option('--report', 'report_path', type=click.Path(), help='统计报告输出路径')
+@click.option('--report', 'report_path', type=click.Path(), help='详细报告输出路径')
+@click.option('--summary', 'summary_path', type=click.Path(), help='汇总报告输出路径')
 @click.option('--report-format', type=click.Choice(['txt', 'json']), default='txt', help='报告格式')
-def stats(input_path, recursive, wpm_threshold, min_duration, report_path, report_format):
+@click.option('--summary-only', is_flag=True, help='只显示汇总报告，不显示详细报告')
+def stats(input_path, recursive, wpm_threshold, min_duration, report_path,
+          summary_path, report_format, summary_only):
     """输出总时长、字数、每分钟字数和高风险句子"""
     files = get_input_files(input_path, recursive)
 
@@ -266,17 +340,37 @@ def stats(input_path, recursive, wpm_threshold, min_duration, report_path, repor
             click.echo(f"[FAIL] {os.path.basename(file_path)}: 解析失败 - {str(e)}")
 
     click.echo("")
-    report = generate_stats_report(stats_list)
-    click.echo(report)
+
+    summary = generate_stats_summary(stats_list)
+
+    if not summary_only:
+        report = generate_stats_report(stats_list)
+        click.echo(report)
+
+    summary_report = generate_stats_summary_report(summary)
+    if summary_only:
+        click.echo(summary_report)
+    else:
+        click.echo("")
+        click.echo(summary_report)
 
     if report_path:
         if report_format == 'json':
             content = stats_to_json(stats_list)
         else:
-            content = report
+            content = generate_stats_report(stats_list)
 
         saved_path = save_report(content, report_path, report_format)
-        click.echo(f"报告已保存到: {saved_path}")
+        click.echo(f"详细报告已保存到: {saved_path}")
+
+    if summary_path:
+        if report_format == 'json':
+            content = __import__('json').dumps(summary, ensure_ascii=False, indent=2)
+        else:
+            content = summary_report
+
+        saved_path = save_report(content, summary_path, report_format)
+        click.echo(f"汇总报告已保存到: {saved_path}")
 
 
 if __name__ == '__main__':
